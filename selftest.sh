@@ -81,7 +81,7 @@ fi
 # Authenticate for the remaining checks.
 TOKEN="$(curl -fsS --max-time 10 -X POST "${API}/auth/login" \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin"}' 2>/dev/null | pyjson "data['access_token']")"
+  -d "$(login_payload)" 2>/dev/null | pyjson "data['access_token']")"
 if [ -z "$TOKEN" ]; then
   check "   authentication" fail "could not sign in as admin/admin"
 fi

@@ -18,6 +18,7 @@ ok "Docker is ready"
 "${ROOT_DIR}/health.sh" || warn "health check reported problems -- continuing"
 
 ENV_FILE="${ROOT_DIR}/.env"
+resolve_public_host
 BACKEND_PORT="$(env_value "$ENV_FILE" BACKEND_PORT 8000)"
 FRONTEND_PORT="$(env_value "$ENV_FILE" FRONTEND_PORT 3000)"
 API="http://localhost:${BACKEND_PORT}/api"
@@ -25,7 +26,7 @@ API="http://localhost:${BACKEND_PORT}/api"
 info "Seeding the demo"
 TOKEN="$(curl -fsS --max-time 10 -X POST "${API}/auth/login" \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin"}' 2>/dev/null | pyjson "data['access_token']")"
+  -d "$(login_payload)" 2>/dev/null | pyjson "data['access_token']")"
 
 if [ -n "$TOKEN" ]; then
   # Run the scripted scenarios through the real Copilot and Governor so the UI
@@ -46,7 +47,7 @@ say "${C_BOLD}GPU NATIVE INFRA POC READY${C_RESET}"
 rule
 say ""
 say "Open:"
-say "http://localhost:${FRONTEND_PORT}"
+say "$(public_url "${FRONTEND_PORT}")"
 say ""
 say "Try:"
 say "\"Deploy a private Llama service for 100 users\""

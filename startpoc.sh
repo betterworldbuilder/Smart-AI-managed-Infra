@@ -50,6 +50,10 @@ force_env GENESTACK_MODE mock
 ok "POC environment pinned to simulation"
 
 export ENV_FILE="$POC_ENV"
+resolve_public_host
+harden_public_credentials "$POC_ENV"
+
+export ENV_FILE="$POC_ENV"
 export COMPOSE_PROJECT="${POC_PROJECT}"
 [ "$NO_OBSERVABILITY" = "0" ] && export COMPOSE_PROFILES_ARGS="--profile observability"
 
@@ -114,11 +118,11 @@ say "AI provider:"
 say "$(printf '%s' "$LLM" | tr '[:lower:]' '[:upper:]')"
 say ""
 say "UI:"
-say "http://localhost:${FRONTEND_PORT}"
+say "$(public_url "${FRONTEND_PORT}")"
 say ""
-say "API docs:  http://localhost:${BACKEND_PORT}/docs"
-[ "$NO_OBSERVABILITY" = "0" ] && say "Grafana:   http://localhost:${GRAFANA_PORT}"
-say "Login:     admin / admin   (POC ONLY)"
+say "API docs:  $(public_url "${BACKEND_PORT}" /docs)"
+[ "$NO_OBSERVABILITY" = "0" ] && say "Grafana:   $(public_url "${GRAFANA_PORT}")"
+print_credentials "$POC_ENV"
 say ""
 rule
 say "Self test: ./selftest-poc.sh      Stop: ./stoppoc.sh"

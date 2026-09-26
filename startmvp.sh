@@ -33,6 +33,9 @@ done
 
 MVP_ENV="${ROOT_DIR}/deployments/mvp/.env.mvp"
 ensure_env_file "$MVP_ENV"
+export ENV_FILE="$MVP_ENV"
+resolve_public_host
+harden_public_credentials "$MVP_ENV"
 CLUSTER="$(env_value "$MVP_ENV" KIND_CLUSTER_NAME gpu-native-mvp)"
 WORKERS="$(env_value "$MVP_ENV" KIND_WORKERS 2)"
 KUBECONFIG_PATH="${ROOT_DIR}/deployments/mvp/kubeconfig"
@@ -289,6 +292,12 @@ info "Deploying the platform into the cluster"
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/postgres.yaml" >/dev/null
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/opa.yaml" >/dev/null
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/backend.yaml" >/dev/null
+# The manifest carries POC defaults; the real credentials come from .env.mvp
+# (hardened on a public host), so they never live in a committed file.
+kubectl -n aiinfra set env deployment/backend \
+  AUTH_USERNAME="$(env_value "$MVP_ENV" AUTH_USERNAME admin)" \
+  AUTH_PASSWORD="$(env_value "$MVP_ENV" AUTH_PASSWORD admin)" \
+  AUTH_SECRET="$(env_value "$MVP_ENV" AUTH_SECRET poc-insecure-signing-key)" >/dev/null
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/frontend.yaml" >/dev/null
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/monitoring/prometheus.yaml" >/dev/null
 
@@ -339,10 +348,10 @@ say "Host GPU:          $(printf '%s' "$HOST_GPU" | tr '[:lower:]' '[:upper:]')"
 say "GPU in cluster:    $(printf '%s' "$GPU" | tr '[:lower:]' '[:upper:]')"
 [ -n "$GPU_REASON" ] && say "                   ${GPU_REASON}"
 say ""
-say "UI:                http://localhost:3000"
-say "API docs:          http://localhost:8000/docs"
-say "Prometheus:        http://localhost:9090"
-say "Login:             admin / admin   (POC ONLY)"
+say "UI:                $(public_url 3000)"
+say "API docs:          $(public_url 8000 /docs)"
+say "Prometheus:        http://localhost:9090   (this host only -- no auth)"
+print_credentials "$MVP_ENV"
 say ""
 say "kubectl:           export KUBECONFIG=${KUBECONFIG_PATH}"
 say ""

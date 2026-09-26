@@ -1,14 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth, useCapabilities } from '../state'
 import { Banner } from '../components/ui'
 
 export default function Login() {
   const { login } = useAuth()
   const capabilities = useCapabilities()
+  const defaults = capabilities?.default_credentials ?? false
   const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Pre-fill the demo password only while the server still uses it. On a
+  // public host install.sh replaces it, and the page stops advertising it.
+  useEffect(() => {
+    if (defaults) setPassword((current) => current || 'admin')
+  }, [defaults])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -72,11 +79,19 @@ export default function Login() {
           <button className="btn btn-primary w-full" type="submit" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
-          <Banner tone="warning">
-            <strong>POC ONLY — DO NOT USE THESE CREDENTIALS IN PRODUCTION.</strong> The demo
-            account is <code>admin / admin</code>. Set <code>AUTH_ENABLED=false</code> to skip
-            sign-in entirely.
-          </Banner>
+          {defaults ? (
+            <Banner tone="warning">
+              <strong>POC ONLY — DO NOT USE THESE CREDENTIALS IN PRODUCTION.</strong> The demo
+              account is <code>admin / admin</code>. Set <code>AUTH_ENABLED=false</code> to skip
+              sign-in entirely.
+            </Banner>
+          ) : (
+            <Banner tone="info">
+              This instance uses its own credentials. The operator finds them in the
+              <code> .env</code> file on the server (<code>AUTH_USERNAME</code> /{' '}
+              <code>AUTH_PASSWORD</code>), and <code>install.sh</code> prints them.
+            </Banner>
+          )}
         </form>
       </div>
     </div>

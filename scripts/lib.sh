@@ -79,8 +79,157 @@ env_value() {
 compose() {
   local args=(compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE")
   [ -f "$ENV_FILE" ] && args+=(--env-file "$ENV_FILE")
+  # Shell environment wins over --env-file in Compose, so the detected public
+  # address reaches ${PUBLIC_HOST} substitutions (Grafana's root URL).
+  resolve_public_host
   # shellcheck disable=SC2086
   docker "${args[@]}" $COMPOSE_PROFILES_ARGS "$@"
+}
+
+# --- public address ----------------------------------------------------------
+#
+# Where a *browser* should go. Health checks and service-to-service calls keep
+# using localhost -- they run on this machine. Only URLs shown to a person
+# change.
+#
+# Resolution order:
+#   1. PUBLIC_HOST from the environment or the env file
+#   2. the EC2 instance metadata service (IMDSv2): public IPv4, then public DNS
+#   3. localhost
+#
+# Resolve ONCE per script with `resolve_public_host` (not inside $(...), which
+# is a subshell and cannot cache). Off EC2 the metadata probe costs at most one
+# 1-second timeout; after that every lookup is instant.
+#
+# An instance with no public IP (private subnet behind a load balancer) gets
+# nothing from the metadata service -- set PUBLIC_HOST to the load balancer's
+# DNS name or your domain in that case.
+
+resolve_public_host() {
+  if [ -n "${PUBLIC_HOST:-}" ]; then
+    export PUBLIC_HOST
+    return
+  fi
+  local configured
+  configured="$(env_value "${ENV_FILE:-${ROOT_DIR}/.env}" PUBLIC_HOST '')"
+  if [ -n "$configured" ]; then
+    PUBLIC_HOST="$configured"
+    export PUBLIC_HOST
+    return
+  fi
+  local token found=''
+  token="$(curl -fsS --max-time 1 -X PUT 'http://169.254.169.254/latest/api/token' \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null || true)"
+  if [ -n "$token" ]; then
+    found="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: ${token}" \
+      'http://169.254.169.254/latest/meta-data/public-ipv4' 2>/dev/null || true)"
+    if [ -z "$found" ]; then
+      found="$(curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: ${token}" \
+        'http://169.254.169.254/latest/meta-data/public-hostname' 2>/dev/null || true)"
+    fi
+  fi
+  PUBLIC_HOST="${found:-localhost}"
+  export PUBLIC_HOST
+}
+
+detect_public_host() {
+  # Fast path once resolved in the parent shell.
+  [ -n "${PUBLIC_HOST:-}" ] || resolve_public_host
+  printf '%s' "$PUBLIC_HOST"
+}
+
+# public_url PORT [PATH]
+public_url() {
+  printf 'http://%s:%s%s' "$(detect_public_host)" "$1" "${2:-}"
+}
+
+is_public_host() {
+  case "$(detect_public_host)" in
+    localhost | 127.0.0.1 | '') return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# --- credentials on a public host -------------------------------------------
+#
+# admin/admin is fine on a laptop and unacceptable on the internet. When the
+# stack is reachable from outside, replace any default credential still in the
+# env file with a random one, and say so.
+
+random_secret() {
+  # 20 alphanumeric characters. Only ~24% of random bytes are alphanumeric,
+  # so read plenty -- 64 bytes regularly yielded fewer than 20.
+  head -c 512 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20
+}
+
+set_env_value() {
+  # set_env_value FILE KEY VALUE
+  local file="$1" key="$2" value="$3" tmp
+  tmp="$(mktemp)"
+  if grep -qE "^${key}=" "$file"; then
+    sed "s|^${key}=.*|${key}=${value}|" "$file" >"$tmp" && mv "$tmp" "$file"
+  else
+    cp "$file" "$tmp" && printf '%s=%s\n' "$key" "$value" >>"$tmp" && mv "$tmp" "$file"
+  fi
+}
+
+harden_public_credentials() {
+  # harden_public_credentials ENV_FILE
+  #
+  # The root .env is the source of truth. Derived files (.env.poc, .env.mvp)
+  # inherit its values, so every script and every mode agree on one password.
+  local file="$1" changed=0 source="${ROOT_DIR}/.env"
+  is_public_host || return 0
+  [ -f "$file" ] || return 0
+
+  if [ "$file" != "$source" ] && [ -f "$source" ]; then
+    harden_public_credentials "$source"
+  fi
+
+  _harden_one() {
+    # _harden_one KEY DEFAULT GENERATOR
+    local key="$1" default="$2" generator="$3" current inherited
+    current="$(env_value "$file" "$key" "$default")"
+    [ "$current" = "$default" ] || return 0
+    inherited=''
+    [ "$file" != "$source" ] && inherited="$(env_value "$source" "$key" "$default")"
+    if [ -n "$inherited" ] && [ "$inherited" != "$default" ]; then
+      set_env_value "$file" "$key" "$inherited"
+    else
+      set_env_value "$file" "$key" "$($generator)"
+    fi
+    changed=1
+  }
+  _long_secret() { printf '%s%s' "$(random_secret)" "$(random_secret)"; }
+
+  _harden_one AUTH_PASSWORD admin random_secret
+  _harden_one AUTH_SECRET poc-insecure-signing-key _long_secret
+  _harden_one GRAFANA_PASSWORD admin random_secret
+  if [ "$changed" = "1" ]; then
+    warn "public host detected ($(detect_public_host)): default passwords replaced in $(basename "$file")"
+  fi
+}
+
+login_payload() {
+  # login_payload ENV_FILE -> the JSON body for POST /api/auth/login
+  local file="${1:-${ENV_FILE:-${ROOT_DIR}/.env}}"
+  printf '{"username":"%s","password":"%s"}' \
+    "$(env_value "$file" AUTH_USERNAME admin)" \
+    "$(env_value "$file" AUTH_PASSWORD admin)"
+}
+
+print_credentials() {
+  # print_credentials ENV_FILE
+  local file="$1"
+  local user pass
+  user="$(env_value "$file" AUTH_USERNAME admin)"
+  pass="$(env_value "$file" AUTH_PASSWORD admin)"
+  if [ "$pass" = "admin" ]; then
+    say "Login:       ${user} / admin   (POC ONLY -- local use)"
+  else
+    say "Login:       ${user} / ${pass}"
+    say "             (stored in $(basename "$file"); change AUTH_PASSWORD there)"
+  fi
 }
 
 # --- waiting ---------------------------------------------------------------

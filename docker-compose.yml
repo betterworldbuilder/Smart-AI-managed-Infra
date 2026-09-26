@@ -57,7 +57,10 @@ services:
     volumes:
       - ./policies/rego:/policies:ro
     ports:
-      - '${OPA_PORT:-8181}:8181'
+      # Internal service, no authentication: loopback only. Reachable from
+      # this host (health.sh) and from the backend over the compose network,
+      # never from the internet. INTERNAL_BIND=0.0.0.0 to override.
+      - '${INTERNAL_BIND:-127.0.0.1}:${OPA_PORT:-8181}:8181'
     # No healthcheck: the OPA image is distroless (no shell, no curl) and its
     # own binary has no server probe. `health.sh` and the backend both check
     # http://opa:8181/health over HTTP instead.
@@ -70,7 +73,7 @@ services:
     environment:
       MOCK_OPENCENTER_STEP_SECONDS: ${DEPLOY_STEP_SECONDS:-1.2}
     ports:
-      - '${OPENCENTER_PORT:-8080}:8080'
+      - '${INTERNAL_BIND:-127.0.0.1}:${OPENCENTER_PORT:-8080}:8080'   # internal, loopback only
 
   backend:
     build:
@@ -143,7 +146,8 @@ services:
       - ./deployments/poc/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - '${PROMETHEUS_PORT:-9090}:9090'
+      # Prometheus has no authentication: loopback only. Grafana is the public face.
+      - '${INTERNAL_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090'
 
   grafana:
     image: grafana/grafana:11.3.1
@@ -155,7 +159,10 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: 'false'
-      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      # Grafana builds absolute links and redirects from this; without it,
+      # every link points a remote visitor at *their own* localhost.
+      GF_SERVER_ROOT_URL: http://${PUBLIC_HOST:-localhost}:${GRAFANA_PORT:-3001}/
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS:-true}
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
     volumes:
       - ./deployments/poc/grafana/provisioning:/etc/grafana/provisioning:ro

@@ -86,7 +86,7 @@ SCENARIOS="$(curl -fsS --max-time 5 "http://localhost:${BACKEND_PORT}/api/scenar
   -H "Authorization: Bearer $(
     curl -fsS --max-time 5 -X POST "http://localhost:${BACKEND_PORT}/api/auth/login" \
       -H 'Content-Type: application/json' \
-      -d '{"username":"admin","password":"admin"}' 2>/dev/null |
+      -d "$(login_payload)" 2>/dev/null |
       python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])' 2>/dev/null
   )" 2>/dev/null | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)"
 if [ "${SCENARIOS:-0}" -gt 0 ] 2>/dev/null; then
@@ -97,7 +97,7 @@ fi
 
 printf '\n'
 if [ "$FAILURES" -eq 0 ]; then
-  ok "everything is healthy -- open http://localhost:${FRONTEND_PORT}"
+  ok "everything is healthy -- open $(public_url "${FRONTEND_PORT}")"
   exit 0
 fi
 

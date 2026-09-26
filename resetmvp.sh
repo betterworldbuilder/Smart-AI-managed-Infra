@@ -56,4 +56,4 @@ info "Restarting the backend"
 kubectl -n aiinfra rollout restart deployment/backend >/dev/null 2>&1 || true
 kubectl -n aiinfra rollout status deployment/backend --timeout=180s >/dev/null 2>&1 || true
 
-ok "MVP reset. UI: http://localhost:3000"
+ok "MVP reset. UI: $(public_url 3000)"

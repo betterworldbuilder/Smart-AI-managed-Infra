@@ -29,6 +29,8 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 BACKEND_PORT="$(env_value "$ENV_FILE" BACKEND_PORT 8000)"
+resolve_public_host
+harden_public_credentials "$ENV_FILE"
 FRONTEND_PORT="$(env_value "$ENV_FILE" FRONTEND_PORT 3000)"
 GRAFANA_PORT="$(env_value "$ENV_FILE" GRAFANA_PORT 3001)"
 
@@ -61,12 +63,12 @@ say "${C_BOLD}GPU Native Infra POC is ready.${C_RESET}"
 rule
 say ""
 say "Open:"
-say "http://localhost:${FRONTEND_PORT}"
+say "$(public_url "${FRONTEND_PORT}")"
 say ""
 say "Mode:        ${MODE}"
-say "API docs:    http://localhost:${BACKEND_PORT}/docs"
-[ "$NO_OBSERVABILITY" = "0" ] && say "Grafana:     http://localhost:${GRAFANA_PORT}"
-say "Login:       admin / admin   (POC ONLY)"
+say "API docs:    $(public_url "${BACKEND_PORT}" /docs)"
+[ "$NO_OBSERVABILITY" = "0" ] && say "Grafana:     $(public_url "${GRAFANA_PORT}")"
+print_credentials "$ENV_FILE"
 say ""
 say "Try: \"Deploy a private Llama service for 100 users\""
 rule

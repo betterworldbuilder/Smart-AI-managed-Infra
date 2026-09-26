@@ -97,7 +97,7 @@ fi
 
 # 9. real node inventory ----------------------------------------------------------------
 TOKEN="$(curl -fsS --max-time 10 -X POST "${API}/auth/login" \
-  -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' \
+  -H 'Content-Type: application/json' -d "$(login_payload "$MVP_ENV")" \
   2>/dev/null | pyjson "data['access_token']")"
 INVENTORY_NODES="$(api_get /inventory/kubernetes | pyjson "len(data['capacity']['nodes'])")"
 SIMULATED="$(api_get /inventory/kubernetes | pyjson "data['simulated']")"

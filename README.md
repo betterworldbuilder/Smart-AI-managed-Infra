@@ -39,6 +39,11 @@ You need **Docker**. Nothing else — no GPU, no Kubernetes, no OpenStack, no
 Ceph, no openCenter, no API key. The whole datacenter is simulated, and the UI
 tells you so on every screen.
 
+**Hosting it for others?** The same commands work on **AWS EC2**: the scripts
+detect the instance's public address, replace the default passwords, and keep
+unauthenticated internal services off the internet. See
+[docs/aws-ec2.md](docs/aws-ec2.md).
+
 **What you are looking at:** a working end-to-end slice of an idea — intent →
 recommendation → human approval → deployment → monitoring → optimisation
 advice — with the decision layer built for real and the infrastructure layer

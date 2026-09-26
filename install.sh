@@ -38,6 +38,12 @@ info "Preparing configuration"
 ensure_env_file "${ROOT_DIR}/.env"
 ensure_env_file "${ROOT_DIR}/deployments/poc/.env.poc"
 
+# On a public host (EC2), never ship admin/admin to the internet.
+resolve_public_host
+harden_public_credentials "${ROOT_DIR}/.env"
+harden_public_credentials "${ROOT_DIR}/deployments/poc/.env.poc"
+ok "public address: $(detect_public_host)"
+
 # 4. Directories ------------------------------------------------------------
 mkdir -p "${ROOT_DIR}/deployments/mvp/flux/workloads/generated" \
   "${ROOT_DIR}/deployments/poc/seed" \
@@ -93,17 +99,17 @@ say "${C_BOLD}GPU Native Infra POC installed successfully${C_RESET}"
 rule
 say ""
 say "Frontend:"
-say "http://localhost:${FRONTEND_PORT}"
+say "$(public_url "${FRONTEND_PORT}")"
 say ""
 say "Backend API:"
-say "http://localhost:${BACKEND_PORT}"
+say "$(public_url "${BACKEND_PORT}")"
 say ""
 say "API Docs:"
-say "http://localhost:${BACKEND_PORT}/docs"
+say "$(public_url "${BACKEND_PORT}" /docs)"
 say ""
 if [ "$NO_OBSERVABILITY" = "0" ]; then
   say "Grafana:"
-  say "http://localhost:${GRAFANA_PORT}"
+  say "$(public_url "${GRAFANA_PORT}")"
   say ""
 fi
 say "Mode:"
@@ -116,7 +122,7 @@ say "openCenter:"
 say "MOCK"
 say ""
 say "Demo login:"
-say "admin / admin"
+print_credentials "${ROOT_DIR}/.env"
 say ""
 say "Start:"
 say "./start.sh"

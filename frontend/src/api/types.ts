@@ -24,6 +24,7 @@ export type Capabilities = {
   llm_provider: string
   llm_model: string | null
   auth_enabled: boolean
+  default_credentials: boolean
   simulated_datacenter: boolean
 }
 

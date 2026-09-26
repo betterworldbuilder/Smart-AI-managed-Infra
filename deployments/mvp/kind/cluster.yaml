@@ -23,8 +23,9 @@ nodes:
       - containerPort: 30001   # backend API
         hostPort: 8000
         protocol: TCP
-      - containerPort: 30002   # prometheus
+      - containerPort: 30002   # prometheus -- no auth, so this host only
         hostPort: 9090
+        listenAddress: "127.0.0.1"
         protocol: TCP
 
   - role: worker

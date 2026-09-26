@@ -90,6 +90,12 @@ class CapabilityService:
             "llm_provider": self.provider.name,
             "llm_model": self.provider.model,
             "auth_enabled": settings.auth_enabled,
+            # Only a boolean -- never the credential. Lets the login page offer
+            # the admin/admin hint locally, and stay quiet once install.sh has
+            # replaced the defaults on a public host.
+            "default_credentials": settings.auth_enabled
+            and settings.auth_username == "admin"
+            and settings.auth_password == "admin",
             "simulated_datacenter": settings.needs_simulated_infrastructure,
         }
 
