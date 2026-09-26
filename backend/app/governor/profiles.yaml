@@ -1,0 +1,137 @@
+# ---------------------------------------------------------------------------
+# Workload profiles.
+#
+# A profile answers three questions for one class of workload:
+#   1. what does it need by default (base sizing),
+#   2. how does it grow (per-user scaling),
+#   3. which runtimes suit it (runtime_affinity, 0.0 - 1.0).
+#
+# `keywords` drive the deterministic intent extractor and the MockProvider, so
+# the demo works with no LLM at all.
+# ---------------------------------------------------------------------------
+
+version: 1
+
+default_profile: generic
+
+profiles:
+
+  llm-inference:
+    display: LLM inference service
+    keywords: [llama, llm, gpt, mistral, inference, chatbot, "ai server", "ai service",
+               "language model", vllm, ollama, "private ai", "ai assistant"]
+    gpu_required: true
+    container_compatible: true
+    default_isolation: medium
+    gpu_scaling: scale-out
+    default_storage_backend: ceph-rbd
+    base: {vcpu: 8, ram_gb: 64, storage_gb: 500, gpu_count: 1, gpu_memory_gb: 48}
+    scaling:
+      concurrent_users_per_gpu: 20
+      vcpu_per_gpu: 8
+      ram_gb_per_gpu: 64
+      storage_gb_per_gpu: 0
+    questions: [concurrent_users, sensitive_data, environment, workload_isolation]
+    runtime_affinity:
+      KUBERNETES_GPU: 1.0
+      OPENSTACK_GPU_VM: 0.8
+
+  ml-training:
+    display: Model training / fine-tuning
+    keywords: [training, fine-tune, finetune, "train a model", pretraining, pytorch job]
+    gpu_required: true
+    container_compatible: true
+    default_isolation: medium
+    gpu_scaling: scale-up
+    base: {vcpu: 16, ram_gb: 128, storage_gb: 1000, gpu_count: 2, gpu_memory_gb: 80}
+    scaling: {}
+    questions: [gpu_count, environment, storage_gb]
+    runtime_affinity:
+      KUBERNETES_GPU: 0.95
+      OPENSTACK_GPU_VM: 0.85
+
+  ai-dev-workstation:
+    display: GPU development workstation
+    keywords: [workstation, "dev box", "development environment", notebook, jupyter,
+               "pytorch development", "ml engineer", sandbox]
+    gpu_required: true
+    container_compatible: false
+    default_isolation: high
+    gpu_scaling: scale-up
+    base: {vcpu: 8, ram_gb: 32, storage_gb: 200, gpu_count: 1, gpu_memory_gb: 24}
+    scaling: {}
+    questions: [environment, operating_system, sensitive_data]
+    runtime_affinity:
+      OPENSTACK_GPU_VM: 1.0
+      KUBERNETES_GPU: 0.45
+
+  web-api:
+    display: Web API / microservice
+    keywords: ["web api", "rest api", microservice, backend, "http service", api,
+               "internal service", website, frontend]
+    gpu_required: false
+    container_compatible: true
+    default_isolation: low
+    base: {vcpu: 2, ram_gb: 4, storage_gb: 20, gpu_count: 0}
+    scaling:
+      concurrent_users_per_vcpu: 25
+      ram_gb_per_vcpu: 2
+    questions: [concurrent_users, environment, network_exposure, sensitive_data]
+    runtime_affinity:
+      KUBERNETES_CPU: 1.0
+      OPENSTACK_CPU_VM: 0.55
+
+  database:
+    display: Database service
+    keywords: [postgres, postgresql, database, mysql, mariadb, "data store", rdbms, sql]
+    gpu_required: false
+    container_compatible: true
+    default_isolation: medium
+    base: {vcpu: 8, ram_gb: 32, storage_gb: 500, gpu_count: 0}
+    scaling:
+      ram_gb_per_100gb_data: 4
+    questions: [storage_gb, high_availability, environment, sensitive_data]
+    runtime_affinity:
+      DATABASE_SERVICE: 1.0
+      OPENSTACK_CPU_VM: 0.7
+
+  legacy-app:
+    display: Legacy / vendor application
+    keywords: [legacy, "vendor application", "erp", "cannot be containerised",
+               "cannot be containerized", "needs a real os", "virtual machine", vm,
+               "windows server", "oracle"]
+    gpu_required: false
+    container_compatible: false
+    default_isolation: high
+    base: {vcpu: 4, ram_gb: 16, storage_gb: 100, gpu_count: 0}
+    scaling: {}
+    questions: [operating_system, environment, sensitive_data]
+    runtime_affinity:
+      OPENSTACK_CPU_VM: 1.0
+      KUBERNETES_CPU: 0.2
+
+  batch:
+    display: Batch / queue worker
+    keywords: [batch, worker, queue, cron, "scheduled job", etl]
+    gpu_required: false
+    container_compatible: true
+    default_isolation: low
+    base: {vcpu: 4, ram_gb: 8, storage_gb: 50, gpu_count: 0}
+    scaling: {}
+    questions: [environment, storage_gb]
+    runtime_affinity:
+      KUBERNETES_CPU: 1.0
+      OPENSTACK_CPU_VM: 0.5
+
+  generic:
+    display: Generic workload
+    keywords: []
+    gpu_required: false
+    container_compatible: true
+    default_isolation: medium
+    base: {vcpu: 4, ram_gb: 16, storage_gb: 100, gpu_count: 0}
+    scaling: {}
+    questions: [workload_type, environment, sensitive_data]
+    runtime_affinity:
+      KUBERNETES_CPU: 0.8
+      OPENSTACK_CPU_VM: 0.7

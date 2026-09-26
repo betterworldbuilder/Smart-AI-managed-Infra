@@ -1,0 +1,60 @@
+# Scenario E: a highly available production PostgreSQL.
+#
+# POL-012 routes databases to the managed service (a PostgreSQL operator)
+# rather than a hand-built workload; an OpenStack VM stays visible as the
+# documented alternative, with the trade-offs spelled out in the UI.
+apiVersion: aiinfra/v1alpha1
+kind: WorkloadDeployment
+
+metadata:
+  name: orders-db
+  labels:
+    workload: database
+    environment: prod
+    classification: confidential
+
+intent:
+  workload: database
+  environment: prod
+
+runtime:
+  type: kubernetes
+  accelerator: none
+  mode: managed-database
+
+compute:
+  replicas: 3          # one primary, two replicas -- HA
+  cpu: 8
+  memory: 32Gi
+
+storage:
+  type: persistent
+  backend: ceph-rbd
+  size: 500Gi
+
+network:
+  exposure: internal
+  networkPolicy: true
+
+security:
+  classification: confidential
+  encryptionAtRest: false
+  isolation: medium
+
+availability:
+  highAvailability: true
+  antiAffinity: true
+  minReplicas: 2
+
+observability:
+  serviceMonitor: true
+  gpuMetrics: false
+  dashboards:
+    - workload-overview
+
+# Generated artefacts for this spec:
+#   Namespace
+#   postgresql.cnpg.io/Cluster      3 instances, ceph-rbd storage
+#   ScheduledBackup                 nightly at 02:00, 30-day retention
+#   NetworkPolicy                   port 5432 from trusted namespaces only
+#   Services                        -rw (primary) and -ro (replicas)

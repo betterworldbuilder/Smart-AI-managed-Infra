@@ -1,0 +1,273 @@
+# ---------------------------------------------------------------------------
+# Simulated infrastructure inventory (SIMULATION_MODE=true)
+#
+# This file is the single source of truth for the fake datacenter used by the
+# POC. Nothing in the Python code hard-codes GPU models, hosts or capacities --
+# everything is read from here, so you can reshape the "datacenter" by editing
+# this file only.
+#
+# Layout mirrors section 26 of the POC specification.
+# ---------------------------------------------------------------------------
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# GPU catalog.
+#
+# `relative_cost` is a unitless number used by the recommendation engine's cost
+# penalty. `perf_tier` is a coarse capability ranking (higher == faster).
+# Models are discovered from this catalog; the engine never assumes a model.
+# ---------------------------------------------------------------------------
+gpu_models:
+  - model: A10
+    vendor: NVIDIA
+    memory_gb: 24
+    relative_cost: 1.0
+    perf_tier: 2
+    pci_vendor_id: "10de"
+    pci_device_id: "2236"
+    supported_allocation_types: [passthrough, vgpu, timeslice]
+  - model: L40S
+    vendor: NVIDIA
+    memory_gb: 48
+    relative_cost: 2.0
+    perf_tier: 4
+    pci_vendor_id: "10de"
+    pci_device_id: "26b9"
+    supported_allocation_types: [passthrough, vgpu, mig, timeslice]
+  - model: H100
+    vendor: NVIDIA
+    memory_gb: 80
+    relative_cost: 5.0
+    perf_tier: 5
+    pci_vendor_id: "10de"
+    pci_device_id: "2331"
+    supported_allocation_types: [passthrough, mig, timeslice]
+
+# ---------------------------------------------------------------------------
+# Kubernetes foundation
+# ---------------------------------------------------------------------------
+kubernetes:
+  cluster_name: k8s-core
+  version: v1.30.4
+  gpu_operator: nvidia-gpu-operator 24.6.1
+  storage_classes:
+    - name: ceph-rbd
+      backend: ceph-rbd
+      default: true
+    - name: ceph-fs
+      backend: cephfs
+      default: false
+  nodes:
+    - name: worker-01
+      roles: [worker]
+      cpu_total: 32
+      cpu_allocated: 11
+      ram_gb_total: 128
+      ram_gb_allocated: 42
+      labels:
+        nvidia.com/gpu.present: "true"
+        node.kubernetes.io/instance-type: gpu-standard
+      gpus:
+        - model: L40S
+          pci_address: "0000:65:00.0"
+          status: available
+    - name: worker-02
+      roles: [worker]
+      cpu_total: 32
+      cpu_allocated: 9
+      ram_gb_total: 128
+      ram_gb_allocated: 36
+      labels:
+        nvidia.com/gpu.present: "true"
+        node.kubernetes.io/instance-type: gpu-standard
+      gpus:
+        - model: L40S
+          pci_address: "0000:65:00.0"
+          status: available
+    - name: worker-03
+      roles: [worker]
+      cpu_total: 64
+      cpu_allocated: 28
+      ram_gb_total: 256
+      ram_gb_allocated: 96
+      labels:
+        nvidia.com/gpu.present: "true"
+        node.kubernetes.io/instance-type: gpu-large
+      gpus:
+        - model: H100
+          pci_address: "0000:17:00.0"
+          status: allocated
+          workload: ml-training/bert-finetune-0
+        - model: H100
+          pci_address: "0000:65:00.0"
+          status: available
+  workloads:
+    - namespace: platform
+      name: ingress-nginx
+      kind: Deployment
+      replicas: 2
+      cpu: 2
+      ram_gb: 4
+      gpu: 0
+    - namespace: monitoring
+      name: prometheus
+      kind: StatefulSet
+      replicas: 1
+      cpu: 4
+      ram_gb: 16
+      gpu: 0
+    - namespace: ml-training
+      name: bert-finetune
+      kind: Job
+      replicas: 1
+      cpu: 12
+      ram_gb: 64
+      gpu: 1
+
+# ---------------------------------------------------------------------------
+# OpenStack (deployed by Genestack on top of Kubernetes)
+# ---------------------------------------------------------------------------
+openstack:
+  region: RegionOne
+  deployed_by: genestack
+  release: "2024.1 (Caracal)"
+  services:
+    - {name: keystone, state: up}
+    - {name: nova, state: up}
+    - {name: placement, state: up}
+    - {name: neutron, state: up}
+    - {name: ovn, state: up}
+    - {name: glance, state: up}
+    - {name: cinder, state: up}
+    - {name: horizon, state: up}
+    - {name: mariadb, state: up}
+    - {name: rabbitmq, state: up}
+  compute_hosts:
+    - name: compute-01
+      hypervisor: QEMU/KVM
+      availability_zone: az1
+      vcpu_total: 64
+      vcpu_allocated: 24
+      ram_gb_total: 256
+      ram_gb_allocated: 96
+      disk_gb_total: 4000
+      disk_gb_allocated: 1200
+      gpus: []
+    - name: compute-gpu-01
+      hypervisor: QEMU/KVM
+      availability_zone: az1
+      vcpu_total: 64
+      vcpu_allocated: 16
+      ram_gb_total: 256
+      ram_gb_allocated: 64
+      disk_gb_total: 4000
+      disk_gb_allocated: 800
+      iommu: enabled
+      gpus:
+        - model: A10
+          pci_address: "0000:3b:00.0"
+          status: allocated
+          allocation_type: passthrough
+          workload: vm/cad-workstation-01
+        - model: A10
+          pci_address: "0000:af:00.0"
+          status: available
+          allocation_type: passthrough
+    - name: compute-gpu-02
+      hypervisor: QEMU/KVM
+      availability_zone: az2
+      vcpu_total: 64
+      vcpu_allocated: 8
+      ram_gb_total: 512
+      ram_gb_allocated: 64
+      disk_gb_total: 8000
+      disk_gb_allocated: 900
+      iommu: enabled
+      gpus:
+        - model: H100
+          pci_address: "0000:17:00.0"
+          status: allocated
+          allocation_type: passthrough
+          workload: vm/genomics-h100-01
+        - model: H100
+          pci_address: "0000:65:00.0"
+          status: available
+          allocation_type: passthrough
+  flavors:
+    - {name: m1.small, vcpu: 2, ram_gb: 4, disk_gb: 40, gpu: 0}
+    - {name: m1.medium, vcpu: 4, ram_gb: 16, disk_gb: 100, gpu: 0}
+    - {name: m1.large, vcpu: 8, ram_gb: 32, disk_gb: 200, gpu: 0}
+    - {name: m1.xlarge, vcpu: 16, ram_gb: 64, disk_gb: 400, gpu: 0}
+    - name: gpu.small
+      vcpu: 8
+      ram_gb: 32
+      disk_gb: 100
+      gpu: 1
+      extra_specs:
+        "pci_passthrough:alias": "nvidia_gpu:1"
+    - name: gpu.medium
+      vcpu: 16
+      ram_gb: 64
+      disk_gb: 200
+      gpu: 1
+      extra_specs:
+        "pci_passthrough:alias": "nvidia_gpu:1"
+    - name: gpu.large
+      vcpu: 32
+      ram_gb: 128
+      disk_gb: 400
+      gpu: 2
+      extra_specs:
+        "pci_passthrough:alias": "nvidia_gpu:2"
+  images:
+    - {name: ubuntu-22.04-server, os: linux, distro: ubuntu, version: "22.04"}
+    - {name: ubuntu-24.04-server, os: linux, distro: ubuntu, version: "24.04"}
+    - {name: rocky-9, os: linux, distro: rocky, version: "9"}
+    - {name: windows-server-2022, os: windows, distro: windows, version: "2022"}
+    - {name: ubuntu-22.04-cuda12, os: linux, distro: ubuntu, version: "22.04", gpu_ready: true}
+  networks:
+    - {name: internal-net, type: vxlan, external: false, cidr: "10.20.0.0/16"}
+    - {name: management-net, type: vlan, external: false, cidr: "10.10.0.0/16"}
+    - {name: public-net, type: flat, external: true, cidr: "203.0.113.0/24"}
+  instances:
+    - {name: cad-workstation-01, flavor: gpu.medium, host: compute-gpu-01, status: ACTIVE, gpu: 1}
+    - {name: genomics-h100-01, flavor: gpu.medium, host: compute-gpu-02, status: ACTIVE, gpu: 1}
+    - {name: legacy-erp-01, flavor: m1.large, host: compute-01, status: ACTIVE, gpu: 0}
+    - {name: jenkins-01, flavor: m1.medium, host: compute-01, status: ACTIVE, gpu: 0}
+
+# ---------------------------------------------------------------------------
+# Ceph
+# ---------------------------------------------------------------------------
+ceph:
+  cluster_name: ceph-poc
+  health: HEALTH_OK
+  total_tb: 40
+  available_tb: 25
+  pools:
+    - {name: k8s-rbd, backend: ceph-rbd, total_tb: 20, available_tb: 13, consumer: kubernetes}
+    - {name: cinder-volumes, backend: ceph-rbd, total_tb: 15, available_tb: 9, consumer: openstack}
+    - {name: cephfs-data, backend: cephfs, total_tb: 5, available_tb: 3, consumer: shared}
+
+# ---------------------------------------------------------------------------
+# openCenter (mock mode target)
+# ---------------------------------------------------------------------------
+opencenter:
+  endpoint: https://opencenter.lab.internal
+  version: "1.4.0-poc"
+  clusters:
+    - id: oc-k8s-core
+      name: k8s-core
+      type: kubernetes
+      gitops: fluxcd
+      repo: git@git.lab.internal:infra/gitops.git
+      branch: main
+      path: clusters/k8s-core
+    - id: oc-genestack
+      name: genestack-openstack
+      type: openstack
+      gitops: fluxcd
+      provisioner: opentofu
+      repo: git@git.lab.internal:infra/gitops.git
+      branch: main
+      path: clusters/genestack

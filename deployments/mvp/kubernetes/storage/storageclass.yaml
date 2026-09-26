@@ -1,0 +1,16 @@
+# kind ships the rancher local-path provisioner as the default StorageClass.
+#
+# The Governor generates manifests that ask for `ceph-rbd`, because that is the
+# backend the platform models. In the MVP there is no Ceph, so we create a
+# StorageClass *named* ceph-rbd backed by local-path: the generated manifests
+# apply unchanged, and the UI keeps telling the truth (Ceph shows as SIMULATED
+# in the reality matrix -- this is a local disk wearing the same name).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ceph-rbd
+  annotations:
+    aiinfra.io/note: 'local-path provisioner standing in for Ceph RBD in the kind MVP'
+provisioner: rancher.io/local-path
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer

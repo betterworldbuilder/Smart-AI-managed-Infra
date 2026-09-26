@@ -1,0 +1,32 @@
+# Real openCenter.
+#
+#   cp config/opencenter.yaml.example config/opencenter.yaml
+#
+# The token belongs in the environment (OPEN_CENTER_TOKEN) or a Docker secret,
+# never in a file under version control.
+
+opencenter:
+  mode: real                                   # OPEN_CENTER_MODE
+  url: https://opencenter.example.com          # OPEN_CENTER_URL
+  # token: NEVER HERE                          -> OPEN_CENTER_TOKEN
+
+  gitops:
+    repo: git@git.example.com:infra/gitops.git # OPEN_CENTER_GITOPS_REPO
+    branch: main                               # OPEN_CENTER_GITOPS_BRANCH
+
+  # The endpoints the adapter uses. A real openCenter must expose equivalents;
+  # the bundled mock-opencenter container implements exactly these.
+  api:
+    health: GET  /api/v1/health
+    clusters: GET  /api/v1/clusters
+    resources: GET  /api/v1/clusters/{id}/resources
+    validate: POST /api/v1/deployments/validate
+    plan: POST /api/v1/deployments/plan
+    apply: POST /api/v1/deployments/apply
+    run: GET  /api/v1/runs/{run_id}
+    status: GET  /api/v1/deployments/{id}/status
+    rollback: POST /api/v1/deployments/{id}/rollback
+
+  # Try the real code path locally against the bundled mock:
+  #   OPEN_CENTER_MODE=real
+  #   OPEN_CENTER_URL=http://mock-opencenter:8080

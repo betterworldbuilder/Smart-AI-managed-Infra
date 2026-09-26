@@ -1,0 +1,85 @@
+# openCenter blueprint: a GPU workload on Kubernetes.
+#
+# A blueprint describes the *pipeline* openCenter runs for one class of
+# DeploymentSpec. The platform does not execute these itself -- they document
+# the contract so a real openCenter installation can be wired up to match, and
+# so the mock pipeline and the real one have the same shape.
+
+apiVersion: opencenter.io/v1
+kind: Blueprint
+
+metadata:
+  name: kubernetes-gpu-workload
+  description: Deploy a GPU workload to a Kubernetes cluster through GitOps.
+
+# Which DeploymentSpecs this blueprint claims.
+selector:
+  runtime.type: kubernetes
+  runtime.accelerator: gpu
+
+inputs:
+  - name: spec
+    type: aiinfra/v1alpha1.WorkloadDeployment
+    required: true
+  - name: cluster
+    type: string
+    default: k8s-core
+  - name: approved_by
+    type: string
+    required: true          # openCenter records who authorised the change
+
+steps:
+  - name: validate
+    action: validate-spec
+    checks:
+      - name-is-dns-1123
+      - capacity-available
+      - gpu-model-available
+      - storage-class-exists
+      - classification-vs-exposure
+      - ha-replica-count
+
+  - name: generate
+    action: render-manifests
+    outputs:
+      - namespace.yaml
+      - pvc.yaml
+      - deployment.yaml          # resources.limits["nvidia.com/gpu"]
+      - service.yaml
+      - networkpolicy.yaml
+      - servicemonitor.yaml
+      - kustomization.yaml
+
+  - name: commit
+    action: gitops-commit
+    repo: '{{ .cluster.repo }}'
+    branch: '{{ .cluster.branch }}'
+    path: 'clusters/{{ .cluster.name }}/workloads/{{ .spec.metadata.name }}'
+    message: 'feat(aiinfra): deploy {{ .spec.metadata.name }}'
+
+  - name: reconcile
+    action: flux-reconcile
+    kustomization: '{{ .spec.metadata.name }}'
+    namespace: flux-system
+    timeout: 10m
+
+  - name: wait
+    action: wait-for-health
+    # The scheduler -- not openCenter, and certainly not the AI -- decides
+    # which node runs this. The step reads the decision back.
+    reads: pod.spec.nodeName
+    condition: all-replicas-ready
+    timeout: 10m
+
+rollback:
+  - name: revert
+    action: gitops-revert
+  - name: prune
+    action: flux-prune
+  - name: release
+    action: release-resources     # GPUs return to the pool
+
+outputs:
+  - placement                     # scheduler + node + gpu ids
+  - endpoints
+  - dashboards

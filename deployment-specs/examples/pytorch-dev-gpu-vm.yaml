@@ -1,0 +1,70 @@
+# Scenario C: an isolated PyTorch development workstation.
+#
+# Strict isolation (POL-004) moves this off Kubernetes and onto a dedicated VM
+# with a whole GPU passed through. Development (POL-003) takes the cheapest
+# compatible card, so an A10 rather than an H100.
+apiVersion: aiinfra/v1alpha1
+kind: WorkloadDeployment
+
+metadata:
+  name: pytorch-dev
+  labels:
+    workload: ai-dev-workstation
+    environment: dev
+    classification: internal
+  annotations:
+    aiinfra.io/native-scheduler: nova-scheduler
+    aiinfra.io/generated-by: ai-governor
+
+intent:
+  workload: ai-dev-workstation
+  environment: dev
+
+runtime:
+  type: openstack
+  accelerator: gpu
+  mode: vm
+
+compute:
+  replicas: 1
+  cpu: 8
+  memory: 32Gi
+  flavor: gpu.small
+  image: ubuntu-22.04-cuda12
+
+gpu:
+  vendor: nvidia
+  model: A10
+  countPerReplica: 1
+  allocationType: passthrough
+  memoryGb: 24
+  # Nova resolves this alias against [pci] device_spec on the compute host.
+  # The alias name is configuration; the PCI ids are discovered.
+  pciAlias: nvidia_a10
+
+storage:
+  type: persistent
+  backend: ceph-rbd
+  size: 200Gi
+
+network:
+  exposure: internal
+  network: internal-net
+  networkPolicy: true
+
+security:
+  classification: internal
+  encryptionAtRest: false
+  isolation: high
+
+availability:
+  highAvailability: false
+  antiAffinity: false
+  minReplicas: 1
+
+observability:
+  serviceMonitor: true
+  gpuMetrics: true
+  dashboards:
+    - gpu-utilisation
+    - workload-overview

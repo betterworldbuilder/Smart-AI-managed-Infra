@@ -1,0 +1,35 @@
+# kind cluster for the MVP: one control plane, two workers.
+#
+# `startmvp.sh` regenerates this file when KIND_WORKERS differs from 2.
+#
+# The port mappings expose the in-cluster NodePorts on the host so the UI is
+# reachable at http://localhost:3000 exactly as in the POC.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: gpu-native-mvp
+
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 30000   # frontend
+        hostPort: 3000
+        protocol: TCP
+      - containerPort: 30001   # backend API
+        hostPort: 8000
+        protocol: TCP
+      - containerPort: 30002   # prometheus
+        hostPort: 9090
+        protocol: TCP
+
+  - role: worker
+    labels:
+      aiinfra.io/pool: general
+  - role: worker
+    labels:
+      aiinfra.io/pool: general

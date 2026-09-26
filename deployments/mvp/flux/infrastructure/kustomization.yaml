@@ -1,0 +1,16 @@
+# Platform components Flux owns in the MVP.
+#
+# `startmvp.sh` applies these directly (they must exist before the backend can
+# run); this kustomization lets Flux keep them reconciled once a Git remote is
+# configured.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../kubernetes/namespaces/namespaces.yaml
+  - ../../kubernetes/storage/storageclass.yaml
+  - ../../kubernetes/platform/postgres.yaml
+  - ../../kubernetes/platform/opa.yaml
+  - ../../kubernetes/platform/backend.yaml
+  - ../../kubernetes/platform/frontend.yaml
+  - ../../kubernetes/monitoring/prometheus.yaml

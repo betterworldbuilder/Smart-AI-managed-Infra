@@ -1,0 +1,43 @@
+# Genestack / openstack-helm Nova overrides for whole-card GPU passthrough.
+#
+# EXAMPLE ONLY. The vendor and device ids below are placeholders: discover the
+# real ones on each compute host with `lspci -nn` and template them per host.
+# This platform never assumes a product id.
+#
+# Prerequisites on the host (docs/gpu-passthrough.md):
+#   IOMMU on the kernel command line, GPU bound to vfio-pci.
+
+conf:
+  nova:
+    DEFAULT:
+      # Let Nova use the PCI filter when scheduling.
+      scheduler_default_filters: >-
+        AvailabilityZoneFilter,ComputeFilter,ComputeCapabilitiesFilter,
+        ImagePropertiesFilter,ServerGroupAntiAffinityFilter,
+        ServerGroupAffinityFilter,PciPassthroughFilter,NUMATopologyFilter
+
+    filter_scheduler:
+      enabled_filters: >-
+        AvailabilityZoneFilter,ComputeFilter,ComputeCapabilitiesFilter,
+        ImagePropertiesFilter,ServerGroupAntiAffinityFilter,
+        ServerGroupAffinityFilter,PciPassthroughFilter,NUMATopologyFilter
+
+    pci:
+      # One entry per GPU model present in the estate.
+      device_spec: |
+        {"vendor_id": "10de", "device_id": "26b9", "address": "*:*:*.*"}
+      alias: |
+        {"name": "nvidia_l40s", "device_type": "type-PCI", "vendor_id": "10de", "device_id": "26b9", "numa_policy": "preferred"}
+
+    compute:
+      # Pin guest vCPUs; GPU workloads are latency sensitive over PCIe.
+      cpu_dedicated_set: 8-63
+      cpu_shared_set: 0-7
+
+# Only the GPU compute nodes need this; use a node selector so CPU-only hosts
+# are untouched.
+labels:
+  agent:
+    compute:
+      node_selector_key: openstack-compute-node-gpu
+      node_selector_value: enabled

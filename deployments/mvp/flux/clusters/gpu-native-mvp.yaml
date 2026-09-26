@@ -1,0 +1,52 @@
+# Flux entry point for the MVP cluster.
+#
+# Applied by ./startmvp.sh only when GITOPS_REMOTE_URL is set -- with a local
+# working tree there is nothing for Flux to clone, and the platform applies
+# the manifests through the Kubernetes API instead (and says so).
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: infra-gitops
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: ${GITOPS_REMOTE_URL}
+  ref:
+    branch: ${GITOPS_BRANCH}
+  # For a private repo:
+  # secretRef:
+  #   name: gitops-credentials
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./infrastructure
+  prune: true
+  wait: true
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: infra-gitops
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: workloads
+  namespace: flux-system
+spec:
+  interval: 1m
+  # Everything the AI Governor generates lands here, after two human approvals.
+  path: ./workloads/generated/clusters/gpu-native-mvp/workloads
+  prune: true
+  wait: true
+  timeout: 10m
+  dependsOn:
+    - name: infrastructure
+  sourceRef:
+    kind: GitRepository
+    name: infra-gitops

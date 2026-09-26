@@ -1,0 +1,58 @@
+# OPA runs the same rego policies as the POC. The ConfigMap is generated from
+# policies/rego by startmvp.sh, so there is exactly one copy of the policy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: opa
+  namespace: aiinfra
+spec:
+  selector:
+    app.kubernetes.io/name: opa
+  ports:
+    - name: http
+      port: 8181
+      targetPort: 8181
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opa
+  namespace: aiinfra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opa
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opa
+    spec:
+      containers:
+        - name: opa
+          image: openpolicyagent/opa:0.70.0
+          args:
+            - run
+            - --server
+            - --addr=0.0.0.0:8181
+            - --log-level=error
+            - /policies
+          ports:
+            - containerPort: 8181
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          volumeMounts:
+            - name: policies
+              mountPath: /policies
+      volumes:
+        - name: policies
+          configMap:
+            name: aiinfra-policies

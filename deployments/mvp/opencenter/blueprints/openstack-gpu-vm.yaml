@@ -1,0 +1,84 @@
+# openCenter blueprint: a GPU VM on OpenStack with PCI passthrough.
+#
+# Documents the pipeline for the Nova path. The host-side prerequisites
+# (IOMMU, vfio-pci, nova.conf) are NOT done here -- see
+# ../../../../docs/gpu-passthrough.md. The blueprint refuses to proceed if
+# Placement does not already report free GPU capacity.
+
+apiVersion: opencenter.io/v1
+kind: Blueprint
+
+metadata:
+  name: openstack-gpu-vm
+  description: Boot a GPU VM on OpenStack via OpenTofu, using a PCI alias flavor.
+
+selector:
+  runtime.type: openstack
+  runtime.accelerator: gpu
+
+inputs:
+  - name: spec
+    type: aiinfra/v1alpha1.WorkloadDeployment
+    required: true
+  - name: cluster
+    type: string
+    default: genestack
+  - name: approved_by
+    type: string
+    required: true
+
+preconditions:
+  - name: placement-reports-gpus
+    check: 'placement.resource_class[{{ .spec.gpu.resourceClass | default "CUSTOM_PGPU" }}].free >= {{ .spec.gpu.countPerReplica }}'
+    message: Placement reports no free GPU capacity for this model.
+  - name: iommu-enabled
+    check: 'compute_host.iommu == "enabled"'
+    severity: warning
+    message: The target compute host does not report IOMMU as enabled.
+
+steps:
+  - name: validate
+    action: validate-spec
+
+  - name: generate
+    action: render-opentofu
+    outputs:
+      - main.tf            # flavor (pci_passthrough:alias), volume, secgroup, instance
+      - cloud-init.yaml    # qemu-guest-agent, node-exporter, NVIDIA driver
+      - nova-pci-reference.md
+
+  - name: commit
+    action: gitops-commit
+    path: 'clusters/{{ .cluster.name }}/tofu/{{ .spec.metadata.name }}'
+
+  - name: plan
+    action: tofu-plan
+    # The human has already approved the platform's plan; this is the
+    # provider's own plan, surfaced for the record.
+
+  - name: apply
+    action: tofu-apply
+    auto_approve: true     # the approval happened upstream, with a named human
+
+  - name: wait
+    action: wait-for-server
+    # Nova's scheduler picks the compute host; we read it back.
+    reads: server.OS-EXT-SRV-ATTR:host
+    condition: status == ACTIVE
+    timeout: 20m
+
+  - name: verify-gpu
+    action: guest-exec
+    command: nvidia-smi
+    optional: true         # needs guest access; the acceptance test for Phase 6
+
+rollback:
+  - name: destroy
+    action: tofu-destroy
+  - name: revert
+    action: gitops-revert
+
+outputs:
+  - placement              # nova-scheduler + compute host + pci addresses
+  - instance_ids
+  - floating_ips

@@ -1,0 +1,7 @@
+# Everything needed to talk to real infrastructure.
+#
+# The container image installs requirements-k8s.txt by default (pure Python) and
+# only adds requirements-openstack.txt when built with
+# --build-arg INSTALL_OPENSTACK=true, because openstacksdk needs a compiler.
+-r requirements-k8s.txt
+-r requirements-openstack.txt

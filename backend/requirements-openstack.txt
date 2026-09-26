@@ -1,0 +1,9 @@
+# Real OpenStack client. Only needed for OPENSTACK_MODE=real, which is a later
+# phase than the kind MVP -- it is NOT installed in the default image because
+# openstacksdk pulls `netifaces`, which needs a C toolchain.
+#
+# To include it:
+#   docker compose build --build-arg INSTALL_OPENSTACK=true backend
+# or locally:
+#   pip install -r backend/requirements-openstack.txt
+openstacksdk==4.1.0

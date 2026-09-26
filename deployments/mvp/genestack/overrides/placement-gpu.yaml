@@ -1,0 +1,36 @@
+# Placement overrides: make GPUs a first-class, countable resource.
+#
+# EXAMPLE ONLY.
+#
+# The platform's OpenStackInventoryAdapter reads GPU availability from the
+# custom resource classes on each compute host's resource provider -- it does
+# not count cards itself and does not assume a class name. Whatever you call
+# the class here is what the UI will display.
+
+conf:
+  placement:
+    DEFAULT:
+      debug: false
+    placement:
+      # Nothing GPU-specific is required in placement.conf itself; the resource
+      # class appears automatically once Nova reports the PCI device pool.
+      randomize_allocation_candidates: true
+
+# After the compute service restarts, verify:
+#
+#   openstack resource provider list
+#   openstack resource provider inventory list <compute-gpu-01-uuid>
+#
+#   +----------------+------------------+----------+----------+-----------+
+#   | resource_class | allocation_ratio | max_unit | reserved | total     |
+#   +----------------+------------------+----------+----------+-----------+
+#   | VCPU           |              4.0 |       64 |        0 |        64 |
+#   | MEMORY_MB      |              1.0 |   262144 |     8192 |    262144 |
+#   | CUSTOM_PGPU    |              1.0 |        2 |        0 |         2 |
+#   +----------------+------------------+----------+----------+-----------+
+#
+# `CUSTOM_PGPU` (or whatever your deployment names it) is what the adapter
+# turns into "2 x H100 on compute-gpu-02, 1 available" in the GPU inventory.
+#
+# If you prefer per-model classes (CUSTOM_GPU_H100, CUSTOM_GPU_L40S), the
+# adapter handles that too -- it matches any CUSTOM_* class containing "GPU".

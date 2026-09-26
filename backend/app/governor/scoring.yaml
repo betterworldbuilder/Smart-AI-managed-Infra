@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Recommendation scoring weights (section 13).
+#
+#   score = compatibility + capacity + performance + isolation + reliability
+#         + resource_efficiency - cost_penalty - scarcity_penalty + policy_delta
+#
+# Every weight is the maximum number of points that component can contribute.
+# Tune here, not in code -- the engine reads this file at start-up.
+# ---------------------------------------------------------------------------
+
+version: 1
+
+weights:
+  compatibility: 30
+  capacity: 20
+  performance: 15
+  isolation: 15
+  reliability: 10
+  efficiency: 10
+  cost_penalty: 8
+  scarcity_penalty: 10
+
+# How much of the "isolation" budget each runtime class delivers, per requested
+# isolation level.
+isolation_matrix:
+  high:
+    vm: 1.0
+    container: 0.35
+  medium:
+    vm: 1.0
+    container: 0.8
+  low:
+    vm: 1.0
+    container: 1.0
+
+# Reliability: how well the runtime supports the availability requirement.
+reliability:
+  container_ha: 1.0
+  container_single: 0.9
+  vm_ha: 0.75
+  vm_single: 0.8
+  database_service: 1.0
+
+# Resource efficiency: containers pack at request granularity, VMs reserve the
+# whole envelope (and a whole GPU).
+efficiency:
+  container: 1.0
+  vm: 0.8
+  database_service: 0.95
+
+# Performance: a small penalty for hypervisor overhead, and how much of the
+# perf budget is earned by matching the workload's GPU tier requirement.
+performance:
+  vm_overhead: 0.95
+  container_overhead: 1.0
+  gpu_tier_match: 0.9
+  gpu_tier_above: 1.0
+  gpu_tier_below: 0.6
+  cpu_only: 0.85
+
+# Optimization goal modifiers applied to the penalties.
+optimization_goal:
+  cost:
+    cost_penalty_multiplier: 1.6
+    performance_multiplier: 0.7
+  balanced:
+    cost_penalty_multiplier: 1.0
+    performance_multiplier: 1.0
+  performance:
+    cost_penalty_multiplier: 0.5
+    performance_multiplier: 1.2

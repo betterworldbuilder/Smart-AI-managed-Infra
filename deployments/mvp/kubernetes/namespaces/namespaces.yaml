@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aiinfra
+  labels:
+    app.kubernetes.io/part-of: gpu-native-infra
+    # Workload namespaces the Governor creates carry this label too, so the
+    # generated NetworkPolicies can allow traffic from the platform.
+    aiinfra.io/trusted: 'true'
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aiinfra-monitoring
+  labels:
+    app.kubernetes.io/part-of: gpu-native-infra
+    aiinfra.io/trusted: 'true'

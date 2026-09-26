@@ -1,0 +1,43 @@
+# Simulation profile (the default).
+#
+# This file documents what the POC runs with. The authoritative datacenter model
+# lives in ../simulation/inventory.yaml -- edit that to reshape the fake estate.
+#
+# Every value here has an environment-variable equivalent; the environment wins.
+
+mode: simulation          # INFRA_MODE
+
+kubernetes:
+  mode: simulation        # inventory comes from simulation/inventory.yaml
+  cluster: k8s-core
+
+openstack:
+  mode: mock              # OPENSTACK_MODE
+  region: RegionOne
+
+ceph:
+  mode: mock              # CEPH_MODE
+
+genestack:
+  mode: mock              # GENESTACK_MODE  (disabled | mock | experimental | real)
+
+opencenter:
+  mode: mock              # OPEN_CENTER_MODE (mock | compat | real)
+  # The bundled mock-opencenter container speaks the real API contract:
+  #   OPEN_CENTER_MODE=real
+  #   OPEN_CENTER_URL=http://mock-opencenter:8080
+
+ai:
+  provider: mock          # LLM_PROVIDER (mock | ollama | openai)
+  # provider: ollama
+  # base_url: http://host.docker.internal:11434
+  # model: qwen3:8b
+
+policy:
+  engine: opa             # POLICY_ENGINE (internal | opa)
+  url: http://opa:8181    # OPA_URL
+  package: aiinfra/authz  # OPA_PACKAGE
+
+pipeline:
+  step_seconds: 1.2       # DEPLOY_STEP_SECONDS -- pacing of the simulated pipeline
+  metrics_interval: 5     # METRICS_INTERVAL_SECONDS

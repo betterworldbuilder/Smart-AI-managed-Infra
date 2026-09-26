@@ -1,0 +1,78 @@
+{
+  "uid": "gpu-native-infra",
+  "title": "GPU Native Infra",
+  "tags": ["aiinfra", "gpu"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "GPUs allocated",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "color": { "mode": "thresholds" } },
+        "overrides": []
+      },
+      "targets": [{ "expr": "aiinfra_gpu_allocated", "legendFormat": "allocated" }]
+    },
+    {
+      "type": "stat",
+      "title": "GPUs total",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "aiinfra_gpu_total", "legendFormat": "total" }]
+    },
+    {
+      "type": "stat",
+      "title": "Running deployments",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "aiinfra_deployments_running", "legendFormat": "running" }]
+    },
+    {
+      "type": "stat",
+      "title": "Failed deployments",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "aiinfra_deployments_failed", "legendFormat": "failed" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cluster utilisation",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "aiinfra_cpu_utilization_percent", "legendFormat": "CPU" },
+        { "expr": "aiinfra_ram_utilization_percent", "legendFormat": "RAM" },
+        { "expr": "aiinfra_gpu_utilization_percent", "legendFormat": "GPU" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU utilisation by device",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "aiinfra_gpu_device_utilization_percent",
+          "legendFormat": "{{gpu_id}} {{model}} @ {{host}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ceph utilisation",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "targets": [
+        { "expr": "aiinfra_storage_utilization_percent", "legendFormat": "Ceph" }
+      ]
+    }
+  ]
+}

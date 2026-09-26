@@ -1,0 +1,41 @@
+# openCenter configuration for the MVP.
+#
+# In the kind MVP openCenter runs in COMPATIBILITY mode: the platform speaks
+# the same DeploymentBackend contract, but drives real Kubernetes and Flux
+# directly instead of an openCenter installation. The UI reports this as
+# `COMPAT` and never as `REAL`.
+
+opencenter:
+  mode: compat            # OPEN_CENTER_MODE: mock | compat | real
+
+  clusters:
+    - id: k8s-gpu-native-mvp
+      name: gpu-native-mvp
+      type: kubernetes
+      gitops: fluxcd
+      # Local working tree; set gitops.remote to use a real Git server.
+      repo: ../flux/workloads/generated
+      branch: main
+      path: workloads
+
+  gitops:
+    engine: fluxcd
+    # Empty => local/demo reconciliation: manifests are committed to the
+    # working tree and applied through the Kubernetes API, and the engine
+    # label says exactly that. Set a reachable remote and Flux drives it.
+    remote: ''            # GITOPS_REMOTE_URL
+    branch: main          # GITOPS_BRANCH
+
+  blueprints:
+    - ../blueprints/kubernetes-gpu-workload.yaml
+    - ../blueprints/openstack-gpu-vm.yaml
+
+  # Switching to a real installation is an environment change:
+  #   OPEN_CENTER_MODE=real
+  #   OPEN_CENTER_URL=https://opencenter.example.com
+  #   OPEN_CENTER_TOKEN=...      (environment or Docker secret, never a file)
+  #
+  # To rehearse the real HTTP path locally, point it at the bundled mock:
+  #   OPEN_CENTER_URL=http://mock-opencenter:8080
+  #
+  # See ../../../../docs/opencenter-integration.md for the full contract.

@@ -1,0 +1,30 @@
+# Real OpenStack (Genestack or otherwise).
+#
+#   cp config/openstack.yaml.example config/openstack.yaml
+#
+# NEVER put the password here. Supply OS_PASSWORD through the environment or a
+# Docker secret; the backend reads it from the environment only.
+
+openstack:
+  mode: real                 # OPENSTACK_MODE
+  auth_url: https://keystone.example.com/v3   # OS_AUTH_URL
+  username: aiinfra          # OS_USERNAME
+  # password: NEVER HERE     -> OS_PASSWORD env var / docker secret
+  project_name: aiinfra      # OS_PROJECT_NAME
+  user_domain_name: Default  # OS_USER_DOMAIN_NAME
+  project_domain_name: Default
+  region_name: RegionOne     # OS_REGION_NAME
+
+  gpu:
+    # Whole-card passthrough. The platform discovers models from Placement
+    # resource classes and never assumes a PCI product id.
+    resource_class: CUSTOM_PGPU
+    # Nova alias name used in flavor extra_specs as
+    #   pci_passthrough:alias = <alias>:<count>
+    alias_prefix: nvidia_
+
+  # Host prerequisites for GPU VMs -- see docs/gpu-passthrough.md:
+  #   IOMMU enabled in BIOS and on the kernel command line
+  #   vfio-pci bound to the GPU
+  #   [pci] device_spec and alias configured in nova.conf
+  #   Placement tracking the custom resource class

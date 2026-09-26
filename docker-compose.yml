@@ -1,0 +1,171 @@
+# ---------------------------------------------------------------------------
+# GPU Native Infra POC -- the simulated stack.
+#
+#   ./install.sh && ./start.sh      (or: make install && make start)
+#
+# Nothing here needs a GPU, OpenStack, Kubernetes, Ceph, openCenter, Terraform
+# or an external LLM. Everything the demo needs is in these containers.
+#
+# Profiles:
+#   (default)      frontend, backend, postgres, redis, opa, mock-opencenter
+#   observability  prometheus, grafana
+# `start.sh` enables observability unless you pass --no-observability.
+# ---------------------------------------------------------------------------
+
+name: ${COMPOSE_PROJECT_NAME:-gpuinfra-poc}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gpuinfra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gpuinfra}
+      POSTGRES_DB: ${POSTGRES_DB:-gpuinfra}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-gpuinfra} -d ${POSTGRES_DB:-gpuinfra}']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      # First-run initdb can take a couple of minutes on a slow filesystem
+      # (WSL, Docker Desktop volumes); don't fail the whole stack over it.
+      start_period: 180s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--save', '60', '1', '--loglevel', 'warning']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  opa:
+    image: openpolicyagent/opa:0.70.0
+    restart: unless-stopped
+    command:
+      - 'run'
+      - '--server'
+      - '--addr=0.0.0.0:8181'
+      - '--log-level=error'
+      - '/policies'
+    volumes:
+      - ./policies/rego:/policies:ro
+    ports:
+      - '${OPA_PORT:-8181}:8181'
+    # No healthcheck: the OPA image is distroless (no shell, no curl) and its
+    # own binary has no server probe. `health.sh` and the backend both check
+    # http://opa:8181/health over HTTP instead.
+
+  mock-opencenter:
+    build:
+      context: .
+      dockerfile: mock-opencenter/Dockerfile
+    restart: unless-stopped
+    environment:
+      MOCK_OPENCENTER_STEP_SECONDS: ${DEPLOY_STEP_SECONDS:-1.2}
+    ports:
+      - '${OPENCENTER_PORT:-8080}:8080'
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opa:
+        condition: service_started
+      mock-opencenter:
+        condition: service_started
+    environment:
+      APP_NAME: ${APP_NAME:-GPU Native Infra POC}
+      INFRA_MODE: ${INFRA_MODE:-simulation}
+      SIMULATION_MODE: ${SIMULATION_MODE:-true}
+      OPEN_CENTER_MODE: ${OPEN_CENTER_MODE:-mock}
+      OPEN_CENTER_URL: ${OPEN_CENTER_URL:-http://mock-opencenter:8080}
+      OPENSTACK_MODE: ${OPENSTACK_MODE:-mock}
+      CEPH_MODE: ${CEPH_MODE:-mock}
+      GENESTACK_MODE: ${GENESTACK_MODE:-mock}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:8b}
+      POLICY_ENGINE: ${POLICY_ENGINE:-opa}
+      OPA_URL: ${OPA_URL:-http://opa:8181}
+      OPA_PACKAGE: ${OPA_PACKAGE:-aiinfra/authz}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://gpuinfra:gpuinfra@postgres:5432/gpuinfra}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-admin}
+      DEPLOY_STEP_SECONDS: ${DEPLOY_STEP_SECONDS:-1.2}
+      METRICS_INTERVAL_SECONDS: ${METRICS_INTERVAL_SECONDS:-5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - '${BACKEND_PORT:-8000}:8000'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8000/healthz']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      # Creating the schema on a cold PostgreSQL volume can take half a minute.
+      start_period: 120s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - '${FRONTEND_PORT:-3000}:3000'
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ['observability']
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=6h'
+    volumes:
+      - ./deployments/poc/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - '${PROMETHEUS_PORT:-9090}:9090'
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    profiles: ['observability']
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./deployments/poc/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployments/poc/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - '${GRAFANA_PORT:-3001}:3000'
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:

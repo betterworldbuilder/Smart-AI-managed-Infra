@@ -1,0 +1,91 @@
+# ---------------------------------------------------------------------------
+# Predefined demo scenarios (section 27 of the POC specification).
+#
+# Each scenario is a scripted conversation: `prompt` is what the operator types
+# first, `answers` are the replies the demo runner feeds back when the Copilot
+# asks its follow-up questions.
+#
+# `expected_runtime` is asserted by the test-suite, so these double as
+# end-to-end regression fixtures.
+# ---------------------------------------------------------------------------
+
+version: 1
+
+scenarios:
+  - key: A
+    title: Internal web API
+    summary: Stateless internal HTTP API, no GPU, container friendly.
+    prompt: >-
+      Deploy an internal web API for our engineering team. It is a stateless
+      Python service, about 200 users, roughly 30 concurrent requests.
+    answers:
+      environment: prod
+      sensitive_data: internal
+    expected_runtime: KUBERNETES_CPU
+    expected_reason_contains:
+      - container
+
+  - key: B
+    title: Ubuntu VM for legacy software
+    summary: Legacy vendor software that cannot be containerised -> classic VM.
+    prompt: >-
+      I need an Ubuntu 22.04 virtual machine to run a legacy vendor application.
+      It needs a real operating system, it cannot run in a container.
+    answers:
+      environment: prod
+      sensitive_data: internal
+    expected_runtime: OPENSTACK_CPU_VM
+    expected_reason_contains:
+      - container
+
+  - key: C
+    title: Isolated PyTorch development workstation
+    summary: Single-tenant GPU dev box, strict isolation -> GPU VM with passthrough.
+    prompt: >-
+      Deploy an isolated PyTorch development workstation for one ML engineer.
+      It must be fully isolated from other tenants, they need root access.
+    answers:
+      environment: dev
+      sensitive_data: internal
+    expected_runtime: OPENSTACK_GPU_VM
+    expected_reason_contains:
+      - isolation
+
+  - key: D
+    title: Llama inference for 100 employees
+    summary: Container friendly LLM inference, no strict isolation -> Kubernetes GPU.
+    prompt: >-
+      Deploy Llama inference for 100 internal employees, we expect about 25
+      concurrent users at peak.
+    answers:
+      environment: prod
+      sensitive_data: internal
+    expected_runtime: KUBERNETES_GPU
+    expected_reason_contains:
+      - GPU
+
+  - key: E
+    title: Production PostgreSQL database
+    summary: Highly available managed database -> operator on Kubernetes, VM alternative shown.
+    prompt: >-
+      Create a highly available PostgreSQL database for production, about 500 GB
+      of data, internal applications only.
+    answers:
+      environment: prod
+      sensitive_data: confidential
+    expected_runtime: DATABASE_SERVICE
+    expected_reason_contains:
+      - PostgreSQL
+
+  - key: POC
+    title: POC success test (section 32)
+    summary: The scripted acceptance demo -- private Llama for 50 employees.
+    prompt: >-
+      I need a private AI server for 50 employees running Llama with
+      confidential company data.
+    answers:
+      concurrent_users: 20
+      environment: prod
+    expected_runtime: KUBERNETES_GPU
+    expected_reason_contains:
+      - L40S

@@ -1,0 +1,66 @@
+# The output of the POC success test (specification §32).
+#
+# This is the contract between the AI Governor and openCenter: vendor neutral,
+# no kubectl, no nova, no shell. Generated after the first human approval and
+# shown in full before the second.
+apiVersion: aiinfra/v1alpha1
+kind: WorkloadDeployment
+
+metadata:
+  name: llama-internal
+  labels:
+    workload: llm-inference
+    environment: prod
+    classification: confidential
+  annotations:
+    aiinfra.io/recommendation-score: '91.0'
+    aiinfra.io/native-scheduler: kube-scheduler
+    aiinfra.io/generated-by: ai-governor
+
+intent:
+  workload: llm-inference
+  environment: prod
+
+runtime:
+  type: kubernetes
+  accelerator: gpu
+  mode: container
+
+compute:
+  replicas: 1
+  cpu: 8
+  memory: 64Gi
+  image: nginxinc/nginx-unprivileged:1.27-alpine   # placeholder: replace with the real image
+
+gpu:
+  vendor: nvidia
+  model: L40S
+  countPerReplica: 1
+  allocationType: timeslice
+  memoryGb: 48
+
+storage:
+  type: persistent
+  backend: ceph-rbd
+  size: 500Gi
+
+network:
+  exposure: internal
+  networkPolicy: true
+
+security:
+  classification: confidential
+  encryptionAtRest: false
+  isolation: medium
+
+availability:
+  highAvailability: false
+  antiAffinity: false
+  minReplicas: 1
+
+observability:
+  serviceMonitor: true
+  gpuMetrics: true
+  dashboards:
+    - gpu-utilisation
+    - workload-overview

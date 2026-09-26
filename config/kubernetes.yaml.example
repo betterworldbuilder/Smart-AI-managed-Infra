@@ -1,0 +1,28 @@
+# Real Kubernetes.
+#
+#   cp config/kubernetes.yaml.example config/kubernetes.yaml
+#
+# Never commit credentials. The kubeconfig is referenced by path; in-cluster the
+# backend uses its ServiceAccount and needs no file at all.
+
+kubernetes:
+  mode: real                      # INFRA_MODE=mvp (or production)
+
+  # Path to a kubeconfig, mounted into the backend container.
+  #   docker compose ... -v $HOME/.kube/config:/kubeconfig:ro
+  kubeconfig: /kubeconfig         # KUBECONFIG
+  context: ''                     # KUBERNETES_CONTEXT (empty = current context)
+
+  # What the platform expects to find for GPU scheduling. None of these are
+  # installed by the POC; they are the real prerequisites.
+  gpu:
+    resource_name: nvidia.com/gpu # advertised by the NVIDIA device plugin
+    operator: nvidia-gpu-operator # provides the driver, plugin and DCGM
+    feature_discovery: true       # GPU Feature Discovery labels nodes with
+                                  # nvidia.com/gpu.product and .memory
+  storage:
+    default_class: ceph-rbd       # generated PVCs ask for this class
+
+  monitoring:
+    prometheus_url: ''            # PROMETHEUS_URL, optional
+    dcgm_exporter: true

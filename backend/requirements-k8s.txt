@@ -1,0 +1,3 @@
+# Real Kubernetes client -- pure Python, needed by INFRA_MODE=mvp.
+# Installed in the backend image by default so the same image runs both modes.
+kubernetes==31.0.0

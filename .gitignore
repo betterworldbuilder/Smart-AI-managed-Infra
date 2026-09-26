@@ -1,0 +1,38 @@
+# Local configuration -- never commit real endpoints or credentials.
+.env
+.env.local
+deployments/poc/.env.poc
+deployments/mvp/.env.mvp
+deployments/mvp/kubeconfig
+config/*.yaml
+!config/simulation.yaml
+
+# Generated GitOps working tree (regenerated on every deployment; it becomes
+# its own git repository, so the product repo keeps only the directory)
+deployments/mvp/flux/workloads/generated/*
+!deployments/mvp/flux/workloads/generated/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch
+_tmp_*
+*.log

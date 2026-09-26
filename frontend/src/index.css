@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens.
+ *
+ * Chart colours come from a validated categorical palette (three series slots,
+ * all-pairs CVD-safe in both modes) plus a fixed status palette that is never
+ * reused for a series. Dark is a *selected* set of steps for the dark surface,
+ * not an automatic inversion.
+ */
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --surface-2: #f3f3f0;
+  --plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.12);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --accent: #2a78d6;
+  --seq-100: #cde2fb;
+  --seq-300: #6da7ec;
+  --seq-450: #2a78d6;
+  --seq-600: #184f95;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-2: #232321;
+    --plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.12);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --accent: #3987e5;
+    --seq-100: #184f95;
+    --seq-300: #256abf;
+    --seq-450: #3987e5;
+    --seq-600: #86b6ef;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --surface-2: #232321;
+  --plane: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --border: rgba(255, 255, 255, 0.12);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --accent: #3987e5;
+  --seq-100: #184f95;
+  --seq-300: #256abf;
+  --seq-450: #3987e5;
+  --seq-600: #86b6ef;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--plane);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-hairline bg-surface;
+  }
+  .card-pad {
+    @apply p-4;
+  }
+  .label {
+    @apply text-[11px] font-medium uppercase tracking-wide text-muted;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-hairline
+      px-3 py-1.5 text-sm font-medium text-ink transition
+      hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent text-white;
+    background: var(--accent);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+  .btn-danger {
+    @apply border-transparent text-white;
+    background: var(--status-critical);
+  }
+  .input {
+    @apply w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink
+      outline-none placeholder:text-muted focus:border-accent;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-hairline px-2 py-0.5
+      text-[11px] font-medium;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* React Flow: make the canvas obey our surface tokens. */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__edge-text {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gridline);
+  border-radius: 6px;
+}

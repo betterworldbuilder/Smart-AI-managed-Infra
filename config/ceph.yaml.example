@@ -1,0 +1,24 @@
+# Real Ceph.
+#
+#   cp config/ceph.yaml.example config/ceph.yaml
+#
+# Capacity is read from the Ceph dashboard/RESTful API. Credentials go in the
+# environment, never here.
+
+ceph:
+  mode: real                                  # CEPH_MODE
+  dashboard_url: https://ceph.example.com:8443 # CEPH_DASHBOARD_URL
+  # username / password -> environment or docker secret
+
+  pools:
+    # Informational: which pool backs which consumer. The adapter discovers the
+    # real list; this documents the intent.
+    - name: k8s-rbd
+      backend: ceph-rbd
+      consumer: kubernetes
+    - name: cinder-volumes
+      backend: ceph-rbd
+      consumer: openstack
+    - name: cephfs-data
+      backend: cephfs
+      consumer: shared
