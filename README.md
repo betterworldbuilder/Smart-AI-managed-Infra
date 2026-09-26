@@ -1,5 +1,23 @@
 # Smart AI-Managed Infrastructure
 
+> ### 🚧 Status: proof of concept + early MVP — work in progress
+>
+> This is a **work starter**, not a finished product. It is deliberately
+> published early, at the stage where the architecture is real and testable but
+> most of the infrastructure underneath is still simulated.
+>
+> - **POC (`./startpoc.sh`)** — complete and verified. The Copilot, Governor,
+>   policy engine, approval workflow, audit and UI are real; the datacenter
+>   under them is simulated.
+> - **MVP (`./startmvp.sh`)** — early. Real kind Kubernetes, real Flux, real
+>   pods. Not yet verified on the author's machine (see
+>   [status](#what-is-real-today)).
+> - **VMware, real OpenStack/Genestack, Nova GPU VMs, Ceph, FinOps** — declared
+>   in the model, **not implemented**. See the [roadmap](#roadmap).
+>
+> Expect rough edges, unimplemented adapters and breaking changes. That is the
+> point of publishing it now — [help build it](#help-build-it).
+
 **What if deploying infrastructure started with a business goal — not a VM flavor?**
 
 > “Deploy a private AI assistant for 100 employees, keep the data confidential,
@@ -20,6 +38,12 @@ Open **http://localhost:3000** · sign in `admin` / `admin` · type the sentence
 You need **Docker**. Nothing else — no GPU, no Kubernetes, no OpenStack, no
 Ceph, no openCenter, no API key. The whole datacenter is simulated, and the UI
 tells you so on every screen.
+
+**What you are looking at:** a working end-to-end slice of an idea — intent →
+recommendation → human approval → deployment → monitoring → optimisation
+advice — with the decision layer built for real and the infrastructure layer
+mostly simulated. Enough to evaluate the approach, argue with it, and extend
+it. Not enough to run your datacenter.
 
 ---
 
@@ -202,6 +226,38 @@ paths that do not need a live cluster **are** covered by tests. If you run it
 successfully on your machine, please open an issue and say so — that is
 genuinely useful to me.
 
+### Roadmap
+
+Everything below is **declared in the data model and unimplemented**. The
+adapter interfaces exist and are waiting for them, which is why each is a
+tractable contribution rather than a rewrite.
+
+| Phase | What it adds | Status |
+|---|---|---|
+| 1 · Simulated POC | the whole workflow, simulated infrastructure | ✅ done |
+| 2 · Local MVP | real kind Kubernetes, real Flux, real pods and PVCs | 🚧 built, needs verification |
+| 3 · Real openCenter | swap `OPEN_CENTER_MODE=real`; HTTP contract already implemented and rehearsable against the bundled mock | ⬜ planned |
+| 4 · Genestack / OpenStack | real Nova, Placement, Glance, Cinder, Neutron inventory | ⬜ planned |
+| 5 · Nova CPU VM | first real VM created through the workflow | ⬜ planned |
+| 6 · Nova GPU VM | IOMMU → VFIO → `pci.device_spec` → Placement → flavor alias → `nvidia-smi` in the guest | ⬜ planned |
+| 7 · Real observability | Prometheus + DCGM driving the post-deployment advisor | ⬜ planned |
+
+Beyond the phase plan:
+
+| Feature | Current state | Notes |
+|---|---|---|
+| **VMware** | `VMWARE_VM` declared, disabled | needs a `VMwareDeploymentBackend` + inventory adapter; the interfaces are ready |
+| **Ceph** | simulated capacity | real adapter stubbed against the dashboard API |
+| **vGPU / MIG / SR-IOV** | modelled in `GPUAllocationType` | needs allocation + Placement/device-plugin plumbing |
+| **Mixed-GPU placement** | one model per workload | 2 replicas are refused when 1 × L40S and 1 × H100 are free — per-replica assignment needed |
+| **FinOps / budgets** | relative cost units only | no pricing, no per-team budgets, no showback |
+| **Multi-tenancy / RBAC** | single demo account | `admin`/`admin`, POC only |
+| **Bare metal** | `BARE_METAL` declared, disabled | same shape as VMware |
+
+Phases are ordered by risk on purpose: phase 6 touches host BIOS, kernel
+parameters and driver binding, so it comes last. See
+[docs/migration-to-real-openstack.md](docs/migration-to-real-openstack.md).
+
 ---
 
 ## So What
@@ -262,9 +318,12 @@ Then read [docs/demo.md](docs/demo.md) for the guided walkthrough, or press
 
 ### Help build it
 
-This is a POC with real architecture underneath and a lot of obvious next
-steps. I would rather build it with people than alone. Concrete places to
-start — each one is a real, known gap, not busywork:
+This is a work-in-progress POC with real architecture underneath and a lot of
+obvious next steps. I would rather build it with people than alone.
+
+The [roadmap](#roadmap) lists what is declared but unimplemented. Below are the
+places I would start — each one a real, known gap with an interface already
+waiting for it, not busywork:
 
 **Scheduling and GPUs**
 - **Mixed-GPU placement.** Today a workload gets one GPU model for all
@@ -275,12 +334,13 @@ start — each one is a real, known gap, not busywork:
   Placement/device-plugin plumbing does not exist yet.
 - **NUMA and topology awareness** in the scoring (GPU ↔ NIC ↔ CPU locality).
 
-**Platforms**
+**Platforms** *(roadmap phases 2–6)*
 - **Get the kind MVP green** on Docker 29 / Podman / Docker Desktop and tell me
-  what you had to change.
-- **VMware adapter.** `VMWARE_VM` is declared and disabled; the adapter
-  interface is waiting for it.
-- **Real Genestack phase** — see the phase plan; phases 4–6 are unclaimed.
+  what you had to change. This is the single most useful thing right now.
+- **VMware adapter.** `VMWARE_VM` is declared and disabled; implement
+  `VMwareDeploymentBackend` + an inventory adapter against the same interfaces
+  the Kubernetes and OpenStack ones use.
+- **Genestack / real OpenStack** — phases 4–6 are unclaimed.
 
 **The Governor**
 - **A real cost model.** Scoring uses relative cost units; wire in actual
