@@ -48,7 +48,14 @@ No GPU instance is needed: the POC simulates the GPU estate.
 5432 or 6379. They are loopback-bound anyway; the security group is the second
 lock.
 
-## 3. Install Docker
+## 3. Install Docker (automatic)
+
+On Ubuntu/Debian you can skip this: `startpoc.sh`, `install.sh`, `start.sh`
+and `startmvp.sh` notice Docker is missing and offer to install it with the
+official script, add you to the `docker` group, and carry on in the same run
+— no logout needed. Pass `-y` to accept without a prompt.
+
+To do it by hand instead:
 
 ```bash
 ssh ubuntu@<public-ip>
@@ -82,6 +89,40 @@ Login:       admin / Xq7Lp2mRk9WvTz4Hn8Bd
 ```
 
 That address and password are what you share.
+
+### The script says it's ready, but the browser shows nothing
+
+The script only reports ready after the UI answered **on the instance**, so
+the problem is between your browser and the instance. Check, in this order:
+
+1. **Security group.** The usual cause. Add an inbound rule: Custom TCP,
+   port 3000, source *My IP*. On a public host the script prints this
+   instance's security-group ID and a ready-to-run command:
+
+   ```bash
+   aws ec2 authorize-security-group-ingress --region <region> --group-id <sg-id> \
+     --protocol tcp --port 3000 --cidr "$(curl -s https://checkip.amazonaws.com)/32"
+   ```
+
+2. **The address.** Open `http://<public-ip>:3000`. `localhost:3000` on your
+   laptop is your laptop.
+3. **HTTPS.** Browsers sometimes upgrade to `https://` on their own; these
+   ports are plain HTTP. Type `http://` explicitly (or add TLS, section 6).
+
+Tell them apart from your laptop:
+
+```bash
+curl -m 5 -s -o /dev/null -w '%{http_code}\n' http://<public-ip>:3000/healthz
+```
+
+| Result | Meaning |
+|---|---|
+| `200` | reachable — it was the address or HTTPS |
+| timeout / `000` | blocked — security group (or a network ACL / corporate proxy) |
+| connection refused | nothing listening — run `./health.sh` on the instance |
+
+Ubuntu's `ufw` is inactive on EC2 images, and Docker's published ports bypass
+it anyway, so it is rarely the culprit.
 
 ## 5. Custom domain, load balancer or pinned address
 

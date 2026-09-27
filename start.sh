@@ -9,8 +9,9 @@ NO_OBSERVABILITY=0
 for arg in "$@"; do
   case "$arg" in
     --no-observability) NO_OBSERVABILITY=1 ;;
+    -y | --yes) export ASSUME_YES=1 ;;
     -h | --help)
-      say "Usage: ./start.sh [--no-observability]"
+      say "Usage: ./start.sh [--no-observability] [-y]"
       exit 0
       ;;
   esac
@@ -69,6 +70,7 @@ say "Mode:        ${MODE}"
 say "API docs:    $(public_url "${BACKEND_PORT}" /docs)"
 [ "$NO_OBSERVABILITY" = "0" ] && say "Grafana:     $(public_url "${GRAFANA_PORT}")"
 print_credentials "$ENV_FILE"
+print_public_access_hint "${FRONTEND_PORT}"
 say ""
 say "Try: \"Deploy a private Llama service for 100 users\""
 rule

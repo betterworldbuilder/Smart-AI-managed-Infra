@@ -352,6 +352,7 @@ say "UI:                $(public_url 3000)"
 say "API docs:          $(public_url 8000 /docs)"
 say "Prometheus:        http://localhost:9090   (this host only -- no auth)"
 print_credentials "$MVP_ENV"
+print_public_access_hint 3000
 say ""
 say "kubectl:           export KUBECONFIG=${KUBECONFIG_PATH}"
 say ""

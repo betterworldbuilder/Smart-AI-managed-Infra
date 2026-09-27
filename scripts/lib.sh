@@ -6,6 +6,13 @@ set -uo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
 
+# How the calling script was invoked. A file sourced without arguments sees
+# the caller's "$@", so this lets require_docker re-run the same script under
+# a freshly granted docker group -- no logout needed.
+SCRIPT_PATH="$0"
+SCRIPT_ARGS=("$@")
+: "${USER:=$(id -un)}"   # unset under cron and in minimal containers
+
 POC_PROJECT="gpuinfra-poc"
 MVP_PROJECT="gpuinfra-mvp"
 
@@ -27,15 +34,97 @@ rule() { printf '%s\n' "=================================================="; }
 
 # --- prerequisites ---------------------------------------------------------
 
+is_apt_linux() {
+  # Ubuntu, Debian and derivatives -- where get.docker.com is the supported path.
+  [ "$(uname -s)" = "Linux" ] && [ -r /etc/os-release ] || return 1
+  ( . /etc/os-release
+    case " ${ID:-} ${ID_LIKE:-} " in *" ubuntu "* | *" debian "*) exit 0 ;; *) exit 1 ;; esac )
+}
+
+print_docker_install_help() {
+  say ""
+  say "  Install Docker yourself:"
+  if is_apt_linux; then
+    say "    curl -fsSL https://get.docker.com | sudo sh"
+    say "    sudo usermod -aG docker \$USER"
+    say "    newgrp docker          # or log out and back in"
+  else
+    say "    https://docs.docker.com/get-docker/   (Windows/macOS: Docker Desktop)"
+  fi
+  say "  then re-run $(basename "$SCRIPT_PATH")."
+}
+
+rerun_under_docker_group() {
+  # The docker group was granted after this shell started, so this process
+  # cannot use it. Re-run the same script under it with `sg`, once.
+  if [ -z "${_AIINFRA_DOCKER_REEXEC:-}" ] && command -v sg >/dev/null 2>&1; then
+    info "Re-running $(basename "$SCRIPT_PATH") with the docker group (no logout needed)"
+    export _AIINFRA_DOCKER_REEXEC=1
+    exec sg docker -c "$(printf '%q ' "$SCRIPT_PATH" "${SCRIPT_ARGS[@]}")"
+  fi
+  die "Docker is installed but this shell cannot use it yet. Run: newgrp docker   (or log out and back in), then re-run $(basename "$SCRIPT_PATH")."
+}
+
+install_docker() {
+  command -v curl >/dev/null 2>&1 || { sudo apt-get update -qq && sudo apt-get install -y -qq curl; }
+  info "Installing Docker Engine and the Compose plugin (https://get.docker.com)"
+  if ! curl -fsSL https://get.docker.com | sudo sh; then
+    fail "the Docker install script failed"
+    print_docker_install_help
+    exit 1
+  fi
+  # systemd on a normal server; the init script where there is no systemd.
+  sudo systemctl enable --now docker >/dev/null 2>&1 || sudo service docker start >/dev/null 2>&1 || true
+  sudo usermod -aG docker "$USER"
+  ok "Docker $(docker --version 2>/dev/null | awk '{print $3}' | tr -d ,) installed; $USER added to the docker group"
+}
+
 require_docker() {
+  # 1. Not installed.
   if ! command -v docker >/dev/null 2>&1; then
-    die "Docker is not installed. See https://docs.docker.com/get-docker/ (on Windows/macOS install Docker Desktop)."
+    warn "Docker is not installed."
+    if is_apt_linux && command -v sudo >/dev/null 2>&1; then
+      if confirm "Install it now with the official script (uses sudo)?"; then
+        install_docker
+        rerun_under_docker_group
+      fi
+    fi
+    print_docker_install_help
+    exit 1
   fi
+
+  # 2. Installed but unusable: a permission problem, or the daemon is down.
   if ! docker info >/dev/null 2>&1; then
-    die "The Docker daemon is not reachable. Start Docker Desktop, or: sudo systemctl start docker"
+    if [ -S /var/run/docker.sock ] && [ ! -w /var/run/docker.sock ]; then
+      # Granted in /etc/group but not active in this shell (typical right
+      # after an install), or never granted at all.
+      if id -nG "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+        rerun_under_docker_group
+      fi
+      warn "$USER is not allowed to use Docker (not in the docker group)."
+      if confirm "Add $USER to the docker group (uses sudo)?"; then
+        sudo usermod -aG docker "$USER"
+        rerun_under_docker_group
+      fi
+      die "Run: sudo usermod -aG docker \$USER && newgrp docker"
+    fi
+    if command -v sudo >/dev/null 2>&1 && [ "$(uname -s)" = "Linux" ] && ! grep -qi microsoft /proc/version 2>/dev/null; then
+      info "The Docker daemon is not running -- starting it"
+      sudo systemctl start docker >/dev/null 2>&1 || sudo service docker start >/dev/null 2>&1 || true
+      local _
+      for _ in 1 2 3 4 5 6 7 8 9 10; do docker info >/dev/null 2>&1 && break; sleep 1; done
+    fi
+    docker info >/dev/null 2>&1 \
+      || die "The Docker daemon is not reachable. Start Docker Desktop, or: sudo systemctl start docker"
   fi
+
+  # 3. Compose v2.
   if ! docker compose version >/dev/null 2>&1; then
-    die "Docker Compose v2 is required ('docker compose'). Update Docker, or install the compose plugin."
+    if is_apt_linux && command -v sudo >/dev/null 2>&1 && confirm "Install the Docker Compose plugin (uses sudo)?"; then
+      sudo apt-get update -qq && sudo apt-get install -y -qq docker-compose-plugin
+    fi
+    docker compose version >/dev/null 2>&1 \
+      || die "Docker Compose v2 is required ('docker compose'). On Ubuntu: sudo apt-get install docker-compose-plugin"
   fi
 }
 
@@ -130,6 +219,47 @@ resolve_public_host() {
   fi
   PUBLIC_HOST="${found:-localhost}"
   export PUBLIC_HOST
+}
+
+ec2_imds() {
+  # ec2_imds PATH -> a value from the EC2 instance metadata service, or nothing
+  local token
+  token="$(curl -fsS --max-time 1 -X PUT 'http://169.254.169.254/latest/api/token' \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null || true)"
+  [ -n "$token" ] || return 0
+  curl -fsS --max-time 2 -H "X-aws-ec2-metadata-token: ${token}" \
+    "http://169.254.169.254/latest/meta-data/$1" 2>/dev/null || true
+}
+
+print_public_access_hint() {
+  # print_public_access_hint PORT
+  #
+  # The script has already proved the stack answers on this instance. If a
+  # browser still can't reach it, the cause is almost always outside the
+  # instance -- so say exactly what to check, with this instance's own
+  # security group and a command that runs as-is on the operator's laptop.
+  is_public_host || return 0
+  local port="${1:-3000}" mac='' sgs='' sg='' region=''
+  mac="$(ec2_imds mac)"
+  if [ -n "$mac" ]; then
+    sgs="$(ec2_imds "network/interfaces/macs/${mac}/security-group-ids" | tr '\n' ' ' | sed 's/ *$//')"
+    region="$(ec2_imds placement/region)"
+  fi
+  sg="${sgs%% *}"
+  say ""
+  say "${C_BOLD}Page not loading in your browser?${C_RESET} The stack is up -- checked from this instance."
+  say "  1. Use $(public_url "$port"), not localhost (on your laptop that is your laptop)."
+  say "  2. Type the http:// yourself -- these ports serve plain HTTP, not HTTPS."
+  if [ -n "${sg:-}" ]; then
+    say "  3. Allow your IP in this instance's security group (${sgs}). On your laptop:"
+    say "       aws ec2 authorize-security-group-ingress --region ${region} --group-id ${sg} \\"
+    say "         --protocol tcp --port ${port} --cidr \"\$(curl -s https://checkip.amazonaws.com)/32\""
+    say "     or in the console: EC2 > Security Groups > ${sg} > Edit inbound rules >"
+    say "     Custom TCP ${port}, source My IP. Same for 8000 (API docs) and 3001 (Grafana) if wanted."
+  else
+    say "  3. Allow inbound TCP ${port} from your IP in the firewall / security group in front of this host."
+  fi
+  say "  Test from your laptop: curl -m 5 $(public_url "$port" /healthz)   (200 = reachable, timeout = blocked)"
 }
 
 detect_public_host() {
