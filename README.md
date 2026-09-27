@@ -1,22 +1,5 @@
 # Smart AI-Managed Infrastructure
 
-> ### 🚧 Status: proof of concept + early MVP — work in progress
->
-> This is a **work starter**, not a finished product. It is deliberately
-> published early, at the stage where the architecture is real and testable but
-> most of the infrastructure underneath is still simulated.
->
-> - **POC (`./startpoc.sh`)** — complete and verified. The Copilot, Governor,
->   policy engine, approval workflow, audit and UI are real; the datacenter
->   under them is simulated.
-> - **MVP (`./startmvp.sh`)** — early. Real kind Kubernetes, real Flux, real
->   pods. Not yet verified on the author's machine (see
->   [status](#what-is-real-today)).
-> - **VMware, real OpenStack/Genestack, Nova GPU VMs, Ceph, FinOps** — declared
->   in the model, **not implemented**. See the [roadmap](#roadmap).
->
-> Expect rough edges, unimplemented adapters and breaking changes. That is the
-> point of publishing it now — [help build it](#help-build-it).
 
 **What if deploying infrastructure started with a business goal — not a VM flavor?**
 
@@ -302,6 +285,25 @@ incident.
 ## What Now
 
 ### Run it
+
+> ### 🚧 Status: proof of concept + early MVP — work in progress
+>
+> This is a **work starter**, not a finished product. It is deliberately
+> published early, at the stage where the architecture is real and testable but
+> most of the infrastructure underneath is still simulated.
+>
+> - **POC (`./startpoc.sh`)** — complete and verified. The Copilot, Governor,
+>   policy engine, approval workflow, audit and UI are real; the datacenter
+>   under them is simulated.
+> - **MVP (`./startmvp.sh`)** — early. Real kind Kubernetes, real Flux, real
+>   pods. Not yet verified on the author's machine (see
+>   [status](#what-is-real-today)).
+> - **VMware, real OpenStack/Genestack, Nova GPU VMs, Ceph, FinOps** — declared
+>   in the model, **not implemented**. See the [roadmap](#roadmap).
+>
+> Expect rough edges, unimplemented adapters and breaking changes. That is the
+> point of publishing it now — [help build it](#help-build-it).
+
 
 ```bash
 ./demo.sh          # prerequisites → install → start → health → seeded demo
