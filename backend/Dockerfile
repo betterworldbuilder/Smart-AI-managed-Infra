@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 #
 # Build context is the repository root, so the image can carry the simulated
 # datacenter (simulation/) and the rego policies alongside the application.

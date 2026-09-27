@@ -6,9 +6,10 @@ EC2 and adapt:
 * **URLs** printed by `install.sh`, `start.sh`, `startpoc.sh` and `demo.sh` use
   the instance's **public address**, found through the instance metadata
   service (IMDSv2) — public IPv4 first, then public DNS.
-* **Default passwords are replaced.** On a public host, any `admin`/`admin`
-  still in `.env` is swapped for a random 20-character password (and a random
-  signing secret), printed once at the end of the install, and kept in `.env`.
+* **No app login.** The UI opens straight into the app (`AUTH_ENABLED=false`),
+  so **the security group is the access control**: open port 3000 to the IPs
+  you invite, not `0.0.0.0/0`. Grafana's default `admin` password is still
+  replaced with a random one on a public host.
 * **Unauthenticated internal services stay private.** OPA, the mock openCenter
   and Prometheus bind to `127.0.0.1` on the host, so they are unreachable from
   the internet even if a security group is too permissive.
@@ -40,7 +41,7 @@ No GPU instance is needed: the POC simulates the GPU estate.
 | Port | Source | Why |
 |---|---|---|
 | 22 | **your IP only** | SSH |
-| 3000 | your IP, or `0.0.0.0/0` for a public demo | the UI |
+| 3000 | your IP and the IPs you invite — there is no login | the UI |
 | 8000 | your IP (optional) | API docs at `/docs`. The UI does **not** need it — it goes through 3000 |
 | 3001 | your IP (optional) | Grafana |
 
@@ -84,11 +85,12 @@ GPU NATIVE INFRA POC READY
 Open:
 http://54.210.12.34:3000
 ...
-Login:       admin / Xq7Lp2mRk9WvTz4Hn8Bd
-             (stored in .env; change AUTH_PASSWORD there)
+Login:       none -- the app opens directly (AUTH_ENABLED=false)
+             anyone who can reach the UI can use it: limit the
+             security group to your own IP
 ```
 
-That address and password are what you share.
+That address is what you share — with people whose IP you allowed.
 
 ### The script says it's ready, but the browser shows nothing
 
@@ -169,16 +171,13 @@ The stack serves plain HTTP. For a shared demo, put TLS in front:
 ./reset.sh         # fresh simulation
 ```
 
-Credentials live in `.env`. To change them:
+The app has no login. To bring back the single-account sign-in (POC grade),
+start with it switched on — on a public host a random password is generated
+into `.env` and printed:
 
 ```bash
-sed -i 's/^AUTH_PASSWORD=.*/AUTH_PASSWORD=choose-something-long/' .env
-./restart.sh
+AUTH_ENABLED=true ./startpoc.sh
 ```
-
-To keep `admin/admin` on a public host (not recommended), set
-`AUTH_PASSWORD=admin` again **after** install — hardening only replaces
-defaults it finds, it never overwrites a value you chose.
 
 ## Cost
 

@@ -48,6 +48,8 @@ force_env OPEN_CENTER_MODE mock
 force_env OPENSTACK_MODE mock
 force_env CEPH_MODE mock
 force_env GENESTACK_MODE mock
+# No login in the POC. Opt back in with: AUTH_ENABLED=true ./startpoc.sh
+force_env AUTH_ENABLED "${AUTH_ENABLED:-false}"
 ok "POC environment pinned to simulation"
 
 export ENV_FILE="$POC_ENV"

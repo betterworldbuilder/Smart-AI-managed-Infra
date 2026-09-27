@@ -92,7 +92,9 @@ class Settings(BaseSettings):
     redis_url: str = ""
 
     # --- auth (POC only) ----------------------------------------------------
-    auth_enabled: bool = True
+    # Off by default: the POC and MVP have no login. AUTH_ENABLED=true brings
+    # back the single-account sign-in below.
+    auth_enabled: bool = False
     auth_username: str = "admin"
     auth_password: str = "admin"
     auth_secret: str = "poc-insecure-signing-key"

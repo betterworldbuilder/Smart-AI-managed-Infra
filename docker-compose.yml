@@ -106,7 +106,7 @@ services:
       OPA_PACKAGE: ${OPA_PACKAGE:-aiinfra/authz}
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://gpuinfra:gpuinfra@postgres:5432/gpuinfra}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_USERNAME: ${AUTH_USERNAME:-admin}
       AUTH_PASSWORD: ${AUTH_PASSWORD:-admin}
       DEPLOY_STEP_SECONDS: ${DEPLOY_STEP_SECONDS:-1.2}

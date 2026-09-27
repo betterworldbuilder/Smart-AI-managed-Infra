@@ -34,6 +34,8 @@ done
 MVP_ENV="${ROOT_DIR}/deployments/mvp/.env.mvp"
 ensure_env_file "$MVP_ENV"
 export ENV_FILE="$MVP_ENV"
+# No login. Opt back in with: AUTH_ENABLED=true ./startmvp.sh
+set_env_value "$MVP_ENV" AUTH_ENABLED "${AUTH_ENABLED:-false}"
 resolve_public_host
 harden_public_credentials "$MVP_ENV"
 CLUSTER="$(env_value "$MVP_ENV" KIND_CLUSTER_NAME gpu-native-mvp)"
@@ -292,9 +294,10 @@ info "Deploying the platform into the cluster"
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/postgres.yaml" >/dev/null
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/opa.yaml" >/dev/null
 kubectl apply -f "${ROOT_DIR}/deployments/mvp/kubernetes/platform/backend.yaml" >/dev/null
-# The manifest carries POC defaults; the real credentials come from .env.mvp
-# (hardened on a public host), so they never live in a committed file.
+# The manifest carries defaults; the auth switch and any credentials come from
+# .env.mvp (hardened on a public host), so they never live in a committed file.
 kubectl -n aiinfra set env deployment/backend \
+  AUTH_ENABLED="$(env_value "$MVP_ENV" AUTH_ENABLED false)" \
   AUTH_USERNAME="$(env_value "$MVP_ENV" AUTH_USERNAME admin)" \
   AUTH_PASSWORD="$(env_value "$MVP_ENV" AUTH_PASSWORD admin)" \
   AUTH_SECRET="$(env_value "$MVP_ENV" AUTH_SECRET poc-insecure-signing-key)" >/dev/null

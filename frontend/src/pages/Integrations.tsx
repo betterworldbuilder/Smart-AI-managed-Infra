@@ -81,7 +81,7 @@ export default function Integrations() {
                 ['Genestack', capabilities.genestack],
                 ['Policy engine', capabilities.policy_engine],
                 ['LLM provider', `${capabilities.llm_provider} ${capabilities.llm_model ?? ''}`],
-                ['Auth', capabilities.auth_enabled ? 'enabled (admin/admin)' : 'disabled'],
+                ['Auth', capabilities.auth_enabled ? 'enabled (single account)' : 'disabled (no login)'],
                 ['Store', health?.store ?? '—'],
                 [
                   'Redis',

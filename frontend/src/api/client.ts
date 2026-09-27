@@ -53,7 +53,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   const response = await fetch(`${BASE}${path}`, { ...init, headers })
-  if (response.status === 401) {
+  // A 401 on sign-in is a wrong password; anywhere else it means the token
+  // is no longer valid.
+  if (response.status === 401 && path !== '/auth/login') {
     setToken(null)
     throw new ApiError(401, 'Session expired -- please sign in again.')
   }

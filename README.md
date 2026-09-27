@@ -294,15 +294,16 @@ cd Smart-AI-managed-Infra
 ./demo.sh
 ```
 
-Open **http://localhost:3000** · sign in `admin` / `admin` · type the sentence above.
+Open **http://localhost:3000** · no login · type the sentence above.
 
 You need **Docker**. Nothing else — no GPU, no Kubernetes, no OpenStack, no
 Ceph, no openCenter, no API key. The whole datacenter is simulated, and the UI
 tells you so on every screen.
 
 **Hosting it for others?** The same commands work on **AWS EC2**: the scripts
-detect the instance's public address, replace the default passwords, and keep
-unauthenticated internal services off the internet. See
+detect the instance's public address and keep unauthenticated internal
+services off the internet. The app itself has no login, so limit port 3000 to
+the people you invite (security group). See
 [docs/aws-ec2.md](docs/aws-ec2.md).
 
 ```bash

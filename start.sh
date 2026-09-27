@@ -29,6 +29,10 @@ if [ ! -f "$ENV_FILE" ]; then
   ensure_env_file "$ENV_FILE"
 fi
 
+# No login. An .env from an older template still says true; opt back in with
+# AUTH_ENABLED=true ./start.sh
+set_env_value "$ENV_FILE" AUTH_ENABLED "${AUTH_ENABLED:-false}"
+
 BACKEND_PORT="$(env_value "$ENV_FILE" BACKEND_PORT 8000)"
 resolve_public_host
 harden_public_credentials "$ENV_FILE"

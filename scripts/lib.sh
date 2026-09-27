@@ -332,8 +332,11 @@ harden_public_credentials() {
   }
   _long_secret() { printf '%s%s' "$(random_secret)" "$(random_secret)"; }
 
-  _harden_one AUTH_PASSWORD admin random_secret
-  _harden_one AUTH_SECRET poc-insecure-signing-key _long_secret
+  # The app login only matters when it is switched on.
+  if [ "$(env_value "$file" AUTH_ENABLED false)" = "true" ]; then
+    _harden_one AUTH_PASSWORD admin random_secret
+    _harden_one AUTH_SECRET poc-insecure-signing-key _long_secret
+  fi
   _harden_one GRAFANA_PASSWORD admin random_secret
   if [ "$changed" = "1" ]; then
     warn "public host detected ($(detect_public_host)): default passwords replaced in $(basename "$file")"
@@ -352,6 +355,14 @@ print_credentials() {
   # print_credentials ENV_FILE
   local file="$1"
   local user pass
+  if [ "$(env_value "$file" AUTH_ENABLED false)" != "true" ]; then
+    say "Login:       none -- the app opens directly (AUTH_ENABLED=false)"
+    if is_public_host; then
+      say "             anyone who can reach the UI can use it: limit the"
+      say "             security group to your own IP"
+    fi
+    return 0
+  fi
   user="$(env_value "$file" AUTH_USERNAME admin)"
   pass="$(env_value "$file" AUTH_PASSWORD admin)"
   if [ "$pass" = "admin" ]; then
